@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { User } from '@supabase/supabase-js';
+import type { Session, User } from '@supabase/supabase-js';
 
 type AppRole = 'admin' | 'blogger' | 'seller';
 
@@ -20,6 +20,32 @@ interface AuthContextType {
   loading: boolean;
   signOut: () => Promise<void>;
 }
+
+const getStoredRefreshToken = (): string | null => {
+  if (typeof window === 'undefined') return null;
+
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+  if (!projectId) return null;
+
+  const storageKey = `sb-${projectId}-auth-token`;
+  const rawValue = window.localStorage.getItem(storageKey);
+  if (!rawValue) return null;
+
+  try {
+    const parsed = JSON.parse(rawValue) as
+      | { refresh_token?: string; currentSession?: { refresh_token?: string } }
+      | Array<{ refresh_token?: string; currentSession?: { refresh_token?: string } }>;
+
+    if (Array.isArray(parsed)) {
+      const firstEntry = parsed[0];
+      return firstEntry?.refresh_token ?? firstEntry?.currentSession?.refresh_token ?? null;
+    }
+
+    return parsed.refresh_token ?? parsed.currentSession?.refresh_token ?? null;
+  } catch {
+    return rawValue.includes('refresh_token') ? 'refresh_token_exists' : null;
+  }
+};
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -50,51 +76,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let mounted = true;
+    let initializing = true;
 
-    // Safety timeout: if auth state never resolves, stop loading after 5s
-    const safetyTimer = setTimeout(() => {
-      if (mounted && loading) {
-        setLoading(false);
-      }
-    }, 5000);
-
-    // 1. Set up listener FIRST (before getSession) to catch all events
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const applySession = async (session: Session | null) => {
       if (!mounted) return;
-      
+
       const currentUser = session?.user ?? null;
       setUser(currentUser);
-      
+
       if (currentUser) {
-        // Use setTimeout to avoid Supabase deadlock on token refresh
-        setTimeout(async () => {
-          if (!mounted) return;
-          await fetchProfile(currentUser.id);
-          if (mounted) setLoading(false);
-        }, 0);
+        await fetchProfile(currentUser.id);
       } else {
         setProfile(null);
-        setLoading(false);
       }
+    };
+
+    // Listener stays active for sign-in/sign-out/token refresh after bootstrap
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted || initializing) return;
+
+      setLoading(true);
+      let nextSession = session;
+
+      if (!nextSession && getStoredRefreshToken()) {
+        const { data: refreshedData } = await supabase.auth.refreshSession();
+        nextSession = refreshedData.session ?? null;
+      }
+
+      await applySession(nextSession);
+      if (mounted) setLoading(false);
     });
 
-    // 2. Explicitly restore session from localStorage on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!mounted) return;
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      if (currentUser) {
-        fetchProfile(currentUser.id).then(() => {
-          if (mounted) setLoading(false);
-        });
-      } else {
-        setLoading(false);
+    const bootstrapSession = async () => {
+      setLoading(true);
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        let nextSession = session;
+
+        if (!nextSession && getStoredRefreshToken()) {
+          const { data: refreshedData } = await supabase.auth.refreshSession();
+          nextSession = refreshedData.session ?? null;
+        }
+
+        await applySession(nextSession);
+      } catch (e) {
+        console.error('Failed to restore session', e);
+        setUser(null);
+        setProfile(null);
+      } finally {
+        if (mounted) {
+          initializing = false;
+          setLoading(false);
+        }
       }
-    });
+    };
+
+    bootstrapSession();
 
     return () => {
       mounted = false;
-      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
   }, []);
