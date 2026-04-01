@@ -44,14 +44,24 @@ const SellerApplications = () => {
   });
 
   const updateDeal = useMutation({
-    mutationFn: async ({ id, status, updates }: { id: string; status: string; updates?: Record<string, any> }) => {
+    mutationFn: async ({ id, status, updates, bloggerId, productName }: { id: string; status: string; updates?: Record<string, any>; bloggerId?: string; productName?: string }) => {
       const { error } = await supabase.from('deals').update({ status, ...updates }).eq('id', id);
       if (error) throw error;
+      return { bloggerId, productName, status };
     },
-    onSuccess: (_, vars) => {
+    onSuccess: (result, vars) => {
       queryClient.invalidateQueries({ queryKey: ['seller-applications'] });
       queryClient.invalidateQueries({ queryKey: ['seller-deals'] });
       toast({ title: vars.status === 'approved' ? 'Заявка одобрена!' : 'Заявка отклонена' });
+      if (vars.status === 'cancelled' && result?.bloggerId) {
+        supabase.functions.invoke('telegram-notify', {
+          body: {
+            user_id: result.bloggerId,
+            title: '❌ Заявка отклонена',
+            message: `К сожалению, ваша заявка на товар «${result.productName || ''}» была отклонена селлером.`,
+          },
+        }).catch(() => {});
+      }
     },
   });
 
