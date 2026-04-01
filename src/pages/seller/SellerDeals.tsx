@@ -190,6 +190,14 @@ const SellerDeals = () => {
       if (error) throw error;
       qc.invalidateQueries({ queryKey: ['seller-deals'] });
       toast({ title: 'Новая сделка создана!' });
+      // Notify blogger
+      supabase.functions.invoke('telegram-notify', {
+        body: {
+          user_id: deal.blogger?.user_id,
+          title: '📦 Новое предложение сотрудничества!',
+          message: `Селлер предлагает вам новую сделку по товару «${deal.products?.name || ''}». Перейдите в раздел "Мои сделки" для просмотра.`,
+        },
+      }).catch(() => {});
     } catch (e: any) {
       toast({ title: 'Ошибка', description: e.message, variant: 'destructive' });
     }

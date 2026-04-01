@@ -64,7 +64,6 @@ const SellerApplications = () => {
 
   const handleApprove = () => {
     if (!approveApp) return;
-    // Update product requirements if changed
     const originalReq = (approveApp.products as any)?.requirements || '';
     if (requirements !== originalReq) {
       supabase.from('products').update({ requirements }).eq('id', approveApp.product_id).then(null, () => {});
@@ -74,6 +73,14 @@ const SellerApplications = () => {
       status: 'approved',
       updates: { deadline_final: deadline?.toISOString() || null },
     });
+    // Notify blogger via Telegram
+    supabase.functions.invoke('telegram-notify', {
+      body: {
+        user_id: approveApp.blogger_id,
+        title: '✅ Заявка одобрена!',
+        message: `Ваша заявка на товар «${(approveApp.products as any)?.name || ''}» одобрена селлером. Перейдите в раздел "Мои сделки" для дальнейших действий.`,
+      },
+    }).catch(() => {});
     setApproveApp(null);
   };
 
