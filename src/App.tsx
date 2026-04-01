@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AppErrorBoundary from "@/components/AppErrorBoundary";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, forwardRef } from "react";
 import { PageSkeleton } from "@/components/ui/skeletons";
 
 // Eager: landing & auth (small, always needed)
