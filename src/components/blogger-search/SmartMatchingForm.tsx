@@ -100,20 +100,21 @@ const SmartMatchingForm = ({ onSubmit }: Props) => {
           <Input placeholder="https://wildberries.ru/catalog/..." value={productUrl} onChange={e => setProductUrl(e.target.value)} className="mt-1" />
         </div>
 
-        {/* Category + Price */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label className="text-xs">Категория</Label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger className="mt-1"><SelectValue placeholder="Выбрать" /></SelectTrigger>
-              <SelectContent>
-                {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">Цена товара, ₽</Label>
-            <Input type="number" placeholder="1500" value={price} onChange={e => setPrice(e.target.value)} className="mt-1" />
+        {/* Categories (multi-select) */}
+        <div>
+          <Label className="text-xs mb-1.5 block">Категории</Label>
+          <div className="flex flex-wrap gap-1.5">
+            {CATEGORIES.map(c => (
+              <button
+                key={c}
+                onClick={() => toggleCategory(c)}
+                className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${
+                  categories.includes(c) ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/50'
+                }`}
+              >
+                {c}
+              </button>
+            ))}
           </div>
         </div>
 
