@@ -58,6 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }, 5000);
 
+    // 1. Set up listener FIRST (before getSession) to catch all events
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
       
@@ -65,6 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(currentUser);
       
       if (currentUser) {
+        // Use setTimeout to avoid Supabase deadlock on token refresh
         setTimeout(async () => {
           if (!mounted) return;
           await fetchProfile(currentUser.id);
@@ -72,6 +74,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }, 0);
       } else {
         setProfile(null);
+        setLoading(false);
+      }
+    });
+
+    // 2. Explicitly restore session from localStorage on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) {
+        fetchProfile(currentUser.id).then(() => {
+          if (mounted) setLoading(false);
+        });
+      } else {
         setLoading(false);
       }
     });
