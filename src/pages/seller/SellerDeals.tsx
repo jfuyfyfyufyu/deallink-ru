@@ -128,14 +128,21 @@ const SellerDeals = () => {
     });
   }, [deals, statusFilter, search, archivedIds, showArchive]);
 
+  const invalidateDeals = () => Promise.all([
+    qc.invalidateQueries({ queryKey: ['seller-deals'] }),
+    qc.invalidateQueries({ queryKey: ['blogger-deals'] }),
+    qc.invalidateQueries({ queryKey: ['seller-applications'] }),
+  ]);
+
   const advanceDeal = useMutation({
     mutationFn: async ({ id, status, updates }: { id: string; status: string; updates?: Record<string, any> }) => {
-      const { error } = await supabase.from('deals').update({ status, ...updates }).eq('id', id);
+      const { data, error } = await supabase.from('deals').update({ status, ...updates, updated_at: new Date().toISOString() }).eq('id', id).select('id').single();
       if (error) throw error;
+      if (!data) throw new Error('Не удалось обновить сделку');
       return { id, status };
     },
     onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: ['seller-deals'] });
+      invalidateDeals();
       toast({ title: 'Статус обновлён!' });
       // Notify blogger about status change
       const deal = deals?.find((d: any) => d.id === vars.id);

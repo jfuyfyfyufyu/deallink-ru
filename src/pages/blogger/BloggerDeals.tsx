@@ -105,13 +105,21 @@ const BloggerDeals = () => {
     enabled: !!user,
   });
 
+  const invalidateDeals = () => Promise.all([
+    qc.invalidateQueries({ queryKey: ['blogger-deals'] }),
+    qc.invalidateQueries({ queryKey: ['seller-deals'] }),
+    qc.invalidateQueries({ queryKey: ['seller-applications'] }),
+  ]);
+
   const updateDeal = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Record<string, any> }) => {
-      const { error } = await supabase.from('deals').update(updates).eq('id', id);
+      const { data, error } = await supabase.from('deals').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id).select('id').single();
       if (error) throw error;
+      if (!data) throw new Error('Не удалось обновить сделку');
+      return data;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['blogger-deals'] });
+      invalidateDeals();
       setActiveDeal(null);
       toast({ title: 'Обновлено!' });
     },
