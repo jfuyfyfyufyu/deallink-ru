@@ -148,8 +148,8 @@ const DealPaymentFlow = ({ deal, isSeller, userId }: Props) => {
         notify(deal.blogger_id, '💸 Аванс оплачен',
           `Селлер ${sellerName} оплатил аванс по товару «${productName}». Проверьте получение.`,
           [[
-            { text: '✅ Получил', callback_data: `confirm_payment_${deal.id}` },
-            { text: '❌ Не получил', callback_data: `deny_payment_${deal.id}` },
+            { text: '✅ Получил', url: `${window.location.origin}/blogger/deals` },
+            { text: '❌ Не получил', url: `${window.location.origin}/blogger/deals` },
           ]]);
       },
     });
