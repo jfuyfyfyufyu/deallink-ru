@@ -252,7 +252,7 @@ export function scoreAndRankBloggers(
   return filtered
     .map(blogger => {
       const coeffs: Record<string, number> = {
-        category: categoryCoeff(blogger.niche, criteria.category),
+        category: categoryCoeff(blogger.niche, criteria.categories),
         geo: geoCoeff(blogger.questionnaire?.audience_geo || null, blogger.questionnaire?.city || blogger.questionnaire?.country || null, criteria.targetGeo),
         audience: (
           audienceGenderCoeff(blogger.questionnaire?.audience_gender_male ?? 50, criteria.targetGender) +
@@ -261,8 +261,8 @@ export function scoreAndRankBloggers(
         reach: reachCoeff(blogger, criteria.minReach, criteria.platforms, criteria.reachMode),
         reliability: reliabilityCoeff(blogger),
         speed: speedCoeff(blogger, criteria.speed),
-        cooperation: cooperationCoeff(blogger, criteria.cooperationType),
-        family: familyCoeff(blogger, criteria.familyRelevant, criteria.category),
+        cooperation: cooperationCoeff(blogger, criteria.cooperationTypes),
+        family: familyCoeff(blogger, criteria.familyRelevant, criteria.categories[0] || ''),
       };
 
       // Weighted score
