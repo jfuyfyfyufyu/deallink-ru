@@ -132,12 +132,13 @@ export default function AdminUserDetail({ user, open, onClose }: AdminUserDetail
 
   const moderateQuestionnaire = useMutation({
     mutationFn: async (status: string) => {
+      const note = (status === 'rejected' || status === 'revision') ? rejectNote : null;
       const { error } = await supabase.from('blogger_questionnaires')
-        .update({ moderation_status: status, moderation_note: status === 'rejected' ? rejectNote : null } as any)
+        .update({ moderation_status: status, moderation_note: note } as any)
         .eq('user_id', user.user_id);
       if (error) throw error;
     },
-    onSuccess: () => { refetchQ(); invalidateAll(); toast({ title: 'Статус модерации обновлён' }); },
+    onSuccess: () => { refetchQ(); invalidateAll(); toast({ title: 'Статус модерации обновлён' }); setRejectNote(''); },
     onError: (e: any) => toast({ title: 'Ошибка', description: e.message, variant: 'destructive' }),
   });
 
