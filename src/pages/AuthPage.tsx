@@ -37,7 +37,7 @@ const AuthPage = () => {
     if (pollIntervalRef.current) return;
     setPolling(true);
     triggerPoll();
-    pollIntervalRef.current = setInterval(triggerPoll, 3000);
+    pollIntervalRef.current = setInterval(triggerPoll, 10000);
   }, [triggerPoll]);
 
   const stopPolling = useCallback(() => {
