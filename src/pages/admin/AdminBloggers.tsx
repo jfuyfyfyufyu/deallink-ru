@@ -73,7 +73,7 @@ const AdminBloggers = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-pending-questionnaires'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-all-questionnaires'] });
       queryClient.invalidateQueries({ queryKey: ['admin-bloggers'] });
       toast({ title: 'Статус модерации обновлён' });
     },
