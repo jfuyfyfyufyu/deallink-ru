@@ -14,7 +14,7 @@ const BOT_USERNAME = 'BlogerTop_bot';
 const BASE_URL = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1`;
 
 const AuthPage = () => {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, role: authRole, authLoading } = useAuth();
   const [code, setCode] = useState('');
   const [role, setRole] = useState<'blogger' | 'seller'>('blogger');
   const [loading, setLoading] = useState(false);
