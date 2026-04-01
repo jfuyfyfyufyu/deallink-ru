@@ -39,11 +39,19 @@ const SellerDeals = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from('deals')
-        .select('*, products(name, marketplace_url, requirements, description), blogger:profiles!deals_blogger_id_fkey(name, user_id, telegram_id, niche, subscribers_count, trust_score, avatar_url)')
+        .select('*, products(name, marketplace_url, requirements, description)')
         .eq('seller_id', user!.id)
         .order('updated_at', { ascending: false });
+      if (!data || data.length === 0) return [];
+      // Fetch blogger profiles separately
+      const bloggerIds = [...new Set(data.map((d: any) => d.blogger_id))];
+      const { data: bloggers } = await supabase
+        .from('profiles')
+        .select('user_id, name, telegram_id, niche, subscribers_count, trust_score, avatar_url')
+        .in('user_id', bloggerIds);
+      const bloggerMap = new Map((bloggers || []).map((b: any) => [b.user_id, b]));
       // Load counter-proposals for counter_proposed deals
-      const counterIds = (data || []).filter((d: any) => d.status === 'counter_proposed').map((d: any) => d.id);
+      const counterIds = data.filter((d: any) => d.status === 'counter_proposed').map((d: any) => d.id);
       let counterMap: Record<string, any[]> = {};
       if (counterIds.length > 0) {
         const { data: msgs } = await supabase.from('deal_messages')
@@ -54,7 +62,7 @@ const SellerDeals = () => {
           counterMap[m.deal_id].push(m);
         });
       }
-      return (data || []).map((d: any) => ({ ...d, _counterProposals: counterMap[d.id] || [] }));
+      return data.map((d: any) => ({ ...d, blogger: bloggerMap.get(d.blogger_id) || null, _counterProposals: counterMap[d.id] || [] }));
     },
     enabled: !!user,
   });
