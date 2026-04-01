@@ -270,6 +270,7 @@ export type Database = {
       }
       deal_messages: {
         Row: {
+          attachment_url: string | null
           created_at: string
           deal_id: string
           id: string
@@ -278,6 +279,7 @@ export type Database = {
           sender_id: string
         }
         Insert: {
+          attachment_url?: string | null
           created_at?: string
           deal_id: string
           id?: string
@@ -286,6 +288,7 @@ export type Database = {
           sender_id: string
         }
         Update: {
+          attachment_url?: string | null
           created_at?: string
           deal_id?: string
           id?: string
@@ -428,6 +431,7 @@ export type Database = {
       notifications: {
         Row: {
           created_at: string
+          deal_id: string | null
           id: string
           is_read: boolean | null
           message: string | null
@@ -436,6 +440,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deal_id?: string | null
           id?: string
           is_read?: boolean | null
           message?: string | null
@@ -444,6 +449,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deal_id?: string | null
           id?: string
           is_read?: boolean | null
           message?: string | null
