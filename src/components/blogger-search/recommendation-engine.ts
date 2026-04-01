@@ -248,7 +248,7 @@ export function scoreAndRankBloggers(
     .map(blogger => {
       const coeffs: Record<string, number> = {
         category: categoryCoeff(blogger.niche, criteria.category),
-        geo: geoCoeff(blogger.questionnaire?.city || blogger.questionnaire?.country || null, criteria.targetGeo),
+        geo: geoCoeff(blogger.questionnaire?.audience_geo || null, blogger.questionnaire?.city || blogger.questionnaire?.country || null, criteria.targetGeo),
         audience: (
           audienceGenderCoeff(blogger.questionnaire?.audience_gender_male ?? 50, criteria.targetGender) +
           audienceAgeCoeff(blogger.questionnaire?.audience_age || null, criteria.targetAgeRange)
