@@ -1,19 +1,15 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
-import LandingPage from './LandingPage';
+import { lazy, Suspense } from 'react';
+import { PageSkeleton } from '@/components/ui/skeletons';
+
+const LandingPage = lazy(() => import('./LandingPage'));
 
 const Index = () => {
   const { user, profile, loading } = useAuth();
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Загрузка...</div>
-      </div>
-    );
-  }
-
-  if (!user) return <LandingPage />;
+  if (loading) return <PageSkeleton />;
+  if (!user) return <Suspense fallback={<PageSkeleton />}><LandingPage /></Suspense>;
 
   const role = profile?.role || 'blogger';
   if (role === 'admin') return <Navigate to="/admin" replace />;

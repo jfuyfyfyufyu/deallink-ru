@@ -85,7 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         initializing = false;
         setLoading(false);
       }
-    }, 6000);
+    }, 4000);
 
     const applySession = async (session: Session | null) => {
       if (!mounted) return;
