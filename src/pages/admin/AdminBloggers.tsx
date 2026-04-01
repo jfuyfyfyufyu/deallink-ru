@@ -40,16 +40,29 @@ const AdminBloggers = () => {
     },
   });
 
-  const { data: pendingQuestionnaires } = useQuery({
-    queryKey: ['admin-pending-questionnaires'],
+  const { data: questionnaires } = useQuery({
+    queryKey: ['admin-all-questionnaires'],
     queryFn: async () => {
       const { data } = await supabase
         .from('blogger_questionnaires')
         .select('*')
         .order('updated_at', { ascending: false });
-      return ((data || []) as any[]).filter((q: any) => q.moderation_status === 'pending');
+      return (data || []) as any[];
     },
   });
+
+  const pendingQuestionnaires = questionnaires?.filter((q: any) => q.moderation_status === 'pending') || [];
+
+  const openBloggerDetail = (q: any) => {
+    // Find matching profile or create a minimal one
+    const profile = bloggers?.find((b: any) => b.user_id === q.user_id);
+    if (profile) {
+      setSelectedUser(profile);
+    } else {
+      // Minimal profile object so the detail panel can open
+      setSelectedUser({ user_id: q.user_id, name: q.full_name || 'Без имени', role: 'blogger', trust_score: 0, is_blocked: false, created_at: q.created_at, deals: { total: 0, finished: 0 } });
+    }
+  };
 
   const moderateQuestionnaire = useMutation({
     mutationFn: async ({ userId, status, note }: { userId: string; status: string; note?: string }) => {
