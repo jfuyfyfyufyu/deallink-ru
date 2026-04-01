@@ -96,6 +96,14 @@ const AuthPage = () => {
 
       if (!res.ok) {
         toast({ title: 'Ошибка', description: data.error || 'Неверный код', variant: 'destructive' });
+        setCode('');
+        setLoading(false);
+        return;
+      }
+
+      if (!data.access_token || !data.refresh_token) {
+        toast({ title: 'Ошибка', description: 'Сервер не вернул токены авторизации', variant: 'destructive' });
+        setCode('');
         setLoading(false);
         return;
       }

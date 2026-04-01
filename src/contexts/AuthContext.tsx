@@ -51,7 +51,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let mounted = true;
 
-    // Single source of truth: onAuthStateChange handles everything
+    // Safety timeout: if auth state never resolves, stop loading after 5s
+    const safetyTimer = setTimeout(() => {
+      if (mounted && loading) {
+        setLoading(false);
+      }
+    }, 5000);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
       
@@ -59,7 +65,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(currentUser);
       
       if (currentUser) {
-        // Defer profile fetch to avoid Supabase client deadlock
         setTimeout(async () => {
           if (!mounted) return;
           await fetchProfile(currentUser.id);
@@ -73,6 +78,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
   }, []);
