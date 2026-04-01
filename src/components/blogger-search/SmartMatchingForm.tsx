@@ -69,6 +69,10 @@ const SmartMatchingForm = ({ onSubmit }: Props) => {
 
 
 
+  const toggleCategory = (c: string) => {
+    setCategories(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
+  };
+
   const togglePlatform = (p: SocialPlatform) => {
     setPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
   };
