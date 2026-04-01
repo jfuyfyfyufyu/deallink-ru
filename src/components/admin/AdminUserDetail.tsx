@@ -94,7 +94,7 @@ export default function AdminUserDetail({ user, open, onClose }: AdminUserDetail
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['admin-bloggers'] });
     queryClient.invalidateQueries({ queryKey: ['admin-sellers'] });
-    queryClient.invalidateQueries({ queryKey: ['admin-pending-questionnaires'] });
+    queryClient.invalidateQueries({ queryKey: ['admin-all-questionnaires'] });
   };
 
   const updateProfile = useMutation({
