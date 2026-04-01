@@ -202,17 +202,17 @@ function passesHardFilter(blogger: EnrichedBlogger, criteria: SellerCriteria): b
     if (!hasAny) return false;
   }
 
-  // Barter filter: exclude non-barter bloggers if seller wants only barter
-  if (criteria.cooperationType === 'barter' && blogger.questionnaire?.pricing_type && blogger.questionnaire.pricing_type !== 'barter') {
+  // Barter filter: exclude non-barter bloggers if seller wants ONLY barter
+  if (criteria.cooperationTypes.length === 1 && criteria.cooperationTypes[0] === 'barter' && blogger.questionnaire?.pricing_type && blogger.questionnaire.pricing_type !== 'barter') {
     return false;
   }
 
-  // Excluded categories (blogger doesn't want this category)
-  if (blogger.questionnaire?.excluded_categories?.length) {
-    if (blogger.questionnaire.excluded_categories.some(
-      ec => ec.toLowerCase() === criteria.category.toLowerCase()
-    )) {
-      return false;
+  // Excluded categories (blogger doesn't want any of seller's categories)
+  if (blogger.questionnaire?.excluded_categories?.length && criteria.categories.length > 0) {
+    const allExcluded = criteria.categories.every(cat =>
+      blogger.questionnaire!.excluded_categories.some(ec => ec.toLowerCase() === cat.toLowerCase())
+    );
+    if (allExcluded) return false;
     }
   }
 
