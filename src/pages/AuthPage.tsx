@@ -61,7 +61,7 @@ const AuthPage = () => {
   }
 
   if (user) {
-    const userRole = profile?.role || 'blogger';
+    const userRole = authRole || profile?.role || 'blogger';
     if (userRole === 'admin') return <Navigate to="/admin" replace />;
     if (userRole === 'seller') return <Navigate to="/seller" replace />;
     return <Navigate to="/blogger" replace />;
