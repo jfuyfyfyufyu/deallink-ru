@@ -124,8 +124,29 @@ const SellerDeals = () => {
     mutationFn: async ({ id, status, updates }: { id: string; status: string; updates?: Record<string, any> }) => {
       const { error } = await supabase.from('deals').update({ status, ...updates }).eq('id', id);
       if (error) throw error;
+      return { id, status };
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['seller-deals'] }); toast({ title: 'Статус обновлён!' }); },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['seller-deals'] });
+      toast({ title: 'Статус обновлён!' });
+      // Notify blogger about status change
+      const deal = deals?.find((d: any) => d.id === vars.id);
+      if (deal) {
+        const statusLabels: Record<string, string> = {
+          approved: '✅ Сделка одобрена',
+          cancelled: '❌ Сделка отменена',
+          finished: '🎉 Сделка завершена',
+        };
+        const title = statusLabels[vars.status] || `Статус обновлён: ${vars.status}`;
+        supabase.functions.invoke('telegram-notify', {
+          body: {
+            user_id: deal.blogger_id,
+            title,
+            message: `Товар: «${deal.products?.name || ''}»`,
+          },
+        }).catch(() => {});
+      }
+    },
     onError: (e: any) => toast({ title: 'Ошибка', description: e.message, variant: 'destructive' }),
   });
 
