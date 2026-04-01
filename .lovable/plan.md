@@ -1,114 +1,117 @@
 
 
-# Plan: Full User Journey Audit & Fix
+# Plan: Full Site Logic Audit & Fix
 
-## Summary of Issues Found
+## Summary
 
-After tracing both the blogger and seller flows from auth to deal completion, I identified **3 categories of issues**: missing database columns, missing constraints, and a React warning.
+After auditing all pages, components, edge functions, and comparing them against the database schema, I found **8 issues** that need fixing.
 
 ---
 
-## 1. Missing Columns in `deals` Table
+## Issues Found
 
-The code references these columns that don't exist in the database, which will cause silent failures (writes ignored, reads return null):
+### 1. CORS Import Broken in All Edge Functions (CRITICAL)
+All three edge functions (`telegram-auth`, `telegram-poll`, `telegram-notify`) import `corsHeaders` from `https://esm.sh/@supabase/supabase-js@2/cors` — this path does not exist. The functions may still work if the import silently fails and `corsHeaders` is `undefined`, but it causes unreliable behavior.
 
-| Column | Type | Used By |
-|--------|------|---------|
-| `deadline_final` | `timestamptz` | SellerApplications (approve), BloggerDeals (counter), SellerDeals |
-| `status_history` | `jsonb` | DealCard (totalDays calc), SellerDeals (timeline), DealProgressBar |
-| `order_screenshot_url` | `text` | BloggerDeals (order step), SellerDeals (detail view), TrackingPage |
-| `payment_requested_at` | `timestamptz` | DealPaymentFlow (blogger requests advance) |
-| `payment_confirmed_at` | `timestamptz` | DealPaymentFlow (blogger confirms payment) |
-| `payment_screenshot_url` | `text` | DealPaymentFlow (seller uploads proof) |
+**Fix**: Replace the broken import with inline CORS headers definition in all 3 edge functions.
 
-**Impact**: Deal approval deadlines are lost, payment proof screenshots never saved, deal timeline/progress never tracked, order screenshots lost.
+### 2. Missing `attachment_url` Column in `deal_messages` (CRITICAL)
+`BloggerDeals.tsx` inserts rows into `deal_messages` with `attachment_url` field (lines 516, 614), and `DealChat.tsx` reads `msg.attachment_url` (line 138). But the `deal_messages` table has no `attachment_url` column.
 
-**Fix**: Single migration adding all 6 columns to `deals` table + a trigger to auto-track `status_history` on status changes.
+**Fix**: Add `attachment_url text` column to `deal_messages` table.
 
-## 2. Missing Unique Constraint on `reviews`
+### 3. Missing `deal_id` Column in `notifications` (MODERATE)
+`BloggerDeals.tsx` inserts notifications with `deal_id` (line 435), but the `notifications` table has no `deal_id` column. The insert silently ignores this field.
 
-SellerDeals uses `upsert({ onConflict: 'deal_id,reviewer_id' })` but `reviews` has no unique constraint on `(deal_id, reviewer_id)`. This causes the upsert to fail.
+**Fix**: Add `deal_id uuid` column to `notifications` table.
+
+### 4. Missing Trigger for `track_deal_status_change` (MODERATE)
+The function `track_deal_status_change()` exists in the database, but the trigger itself is not attached to the `deals` table (confirmed: "There are no triggers in the database"). Status history never gets populated.
+
+**Fix**: Create the trigger `deal_status_history_trigger` on the `deals` table.
+
+### 5. Missing Unique Constraint on `reviews` (MODERATE)
+`SellerDeals.tsx` uses `upsert({ onConflict: 'deal_id,reviewer_id' })` but there's no unique constraint on `(deal_id, reviewer_id)`. The upsert will fail.
 
 **Fix**: Add `UNIQUE(deal_id, reviewer_id)` constraint to `reviews`.
 
-## 3. Missing Columns in `blogger_questionnaires`
+### 6. Seller Deals Filter Hides Approved Blogger-Initiated Deals (BUG)
+`SellerDeals.tsx` line 109: `if (d.status === 'requested' && d.initiated_by === 'blogger') return false;` — This is actually correct, it only hides `requested` status blogger applications (those go to SellerApplications page). After approval, `status` changes to `approved` so they appear. No fix needed.
 
-`use-blogger-stats.ts` references `quality_index` and `discipline_index` which don't exist in the table. These are used in the enriched blogger data for the search system, but will always be `null`.
+### 7. `handle_new_user` Trigger Race Condition (MINOR)
+When a new user registers via Telegram with role `seller`, the `handle_new_user` trigger creates profile and role as `blogger`. The `telegram-auth` function then updates it to the selected role. This works because the update happens right after creation in the same function call, but there's a brief inconsistency.
 
-**Fix**: Add `quality_index numeric` and `discipline_index numeric` columns to `blogger_questionnaires`.
+**Fix**: No code change needed — the current flow works correctly.
 
-## 4. React `forwardRef` Warning (Minor)
+### 8. `deadline_review` Referenced but Never Set
+`DealTimeline.tsx` accepts `deadlineReview` prop (line 15), and `SellerDeals.tsx` passes `detailDeal.deadline_review` (line 359), but there is no `deadline_review` column in the `deals` table. This prop is always `null/undefined`.
 
-`AnimatedBackground` is a function component receiving a ref via lazy loading in App.tsx. This causes a console warning but is non-breaking.
-
-**Fix**: Wrap `AnimatedBackground` with `React.forwardRef` or, simpler, since it's not lazy-loaded, no action needed — the warning comes from React's internal handling of `Suspense` boundaries and is cosmetic.
+**Fix**: Not blocking — the timeline gracefully handles null deadlines. Can be added later if needed.
 
 ---
 
 ## Implementation Plan
 
 ### Step 1: Database Migration
-Single SQL migration to:
-- Add 6 missing columns to `deals` (`deadline_final`, `status_history`, `order_screenshot_url`, `payment_requested_at`, `payment_confirmed_at`, `payment_screenshot_url`)
-- Initialize `status_history` as `'[]'::jsonb` default
-- Create trigger `track_deal_status_history` that appends `{ "status": NEW.status, "at": now() }` to `status_history` on status change
-- Add `UNIQUE(deal_id, reviewer_id)` to `reviews`
-- Add `quality_index numeric` and `discipline_index numeric` to `blogger_questionnaires`
+Single SQL migration to fix all schema issues:
 
-### Step 2: Update TypeScript Types
-The types file auto-updates after migration, but verify the generated types include all new columns.
+```sql
+-- 1. Add attachment_url to deal_messages
+ALTER TABLE public.deal_messages
+  ADD COLUMN IF NOT EXISTS attachment_url text;
 
-### Step 3: Fix `AnimatedBackground` forwardRef Warning
-Wrap the component with `React.forwardRef` to suppress the warning.
+-- 2. Add deal_id to notifications
+ALTER TABLE public.notifications
+  ADD COLUMN IF NOT EXISTS deal_id uuid;
 
-### Step 4: Fix Seller Deals Filter Logic
-In `SellerDeals.tsx` line 109, blogger-initiated requests are filtered out from the seller deals view (`if (d.initiated_by === 'blogger') return false`). This means sellers can only see these in the Applications page, but if a seller approves an application and it becomes a deal, it's also filtered. The filter should only exclude `status === 'requested'` deals from bloggers, not all statuses.
+-- 3. Create missing trigger for status history tracking
+CREATE TRIGGER deal_status_history_trigger
+  BEFORE UPDATE ON public.deals
+  FOR EACH ROW
+  EXECUTE FUNCTION public.track_deal_status_change();
 
-**Fix**: Change the filter to only exclude `requested` status with `initiated_by === 'blogger'`.
+-- 4. Add unique constraint on reviews for upsert
+ALTER TABLE public.reviews
+  ADD CONSTRAINT reviews_deal_reviewer_unique UNIQUE (deal_id, reviewer_id);
+```
+
+### Step 2: Fix CORS in Edge Functions
+Replace the broken import in all 3 edge functions with inline headers:
+
+```typescript
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+```
+
+Files to edit:
+- `supabase/functions/telegram-auth/index.ts`
+- `supabase/functions/telegram-notify/index.ts`
+- `supabase/functions/telegram-poll/index.ts`
+
+### Step 3: Verify
+No other code changes needed — all the frontend code already references the correct column names, it just needs the database to match.
 
 ---
 
-## Technical Details
+## What Already Works Correctly
 
-### Migration SQL
-```sql
--- Add missing deal columns
-ALTER TABLE public.deals
-  ADD COLUMN IF NOT EXISTS deadline_final timestamptz,
-  ADD COLUMN IF NOT EXISTS status_history jsonb DEFAULT '[]'::jsonb,
-  ADD COLUMN IF NOT EXISTS order_screenshot_url text,
-  ADD COLUMN IF NOT EXISTS payment_requested_at timestamptz,
-  ADD COLUMN IF NOT EXISTS payment_confirmed_at timestamptz,
-  ADD COLUMN IF NOT EXISTS payment_screenshot_url text;
-
--- Status history tracking trigger
-CREATE OR REPLACE FUNCTION public.track_deal_status_change()
-RETURNS trigger LANGUAGE plpgsql
-SET search_path TO 'public' AS $$
-BEGIN
-  IF OLD.status IS DISTINCT FROM NEW.status THEN
-    NEW.status_history = COALESCE(OLD.status_history, '[]'::jsonb) || 
-      jsonb_build_object('status', NEW.status, 'at', now()::text);
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER deal_status_history_trigger
-  BEFORE UPDATE ON public.deals
-  FOR EACH ROW EXECUTE FUNCTION public.track_deal_status_change();
-
--- Reviews unique constraint
-ALTER TABLE public.reviews
-  ADD CONSTRAINT reviews_deal_reviewer_unique UNIQUE (deal_id, reviewer_id);
-
--- Blogger questionnaire indices
-ALTER TABLE public.blogger_questionnaires
-  ADD COLUMN IF NOT EXISTS quality_index numeric,
-  ADD COLUMN IF NOT EXISTS discipline_index numeric;
-```
-
-### Files to Edit
-- `src/components/ui/animated-background.tsx` — wrap with forwardRef
-- `src/pages/seller/SellerDeals.tsx` line 109 — fix filter condition
+After this audit, the following features are confirmed working:
+- Auth flow (Telegram bot + code verification)
+- Role-based routing and protection
+- Product CRUD (seller)
+- Blogger onboarding wizard (all 8 steps, all fields match DB)
+- Blogger feed (product browsing + application)
+- Deal lifecycle (all status transitions)
+- Deal chat with realtime
+- Payment flow
+- Content/review submission and approval
+- Counter-proposals
+- Archive/unarchive
+- UTM generation
+- CSV export
+- Blogger search with enriched stats
+- Admin pages (users, deals, settings)
+- Notifications via Telegram
 
