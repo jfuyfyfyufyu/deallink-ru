@@ -51,15 +51,14 @@ interface Props {
 
 const SmartMatchingForm = ({ onSubmit }: Props) => {
   const [productUrl, setProductUrl] = useState('');
-  const [category, setCategory] = useState('');
-  const [price, setPrice] = useState('');
+  const [categories, setCategories] = useState<string[]>([]);
   const [goals] = useState<SearchGoal[]>([]);
   const [platforms, setPlatforms] = useState<SocialPlatform[]>([]);
   const [minReach, setMinReach] = useState('');
   const [reachMode, setReachMode] = useState<'per_platform' | 'total'>('total');
   const [speed, setSpeed] = useState<SpeedFilter | null>(null);
   const [minRiskScore, setMinRiskScore] = useState(0);
-  const [priceType, setPriceType] = useState<PriceType | null>(null);
+  const [priceTypes, setPriceTypes] = useState<PriceType[]>([]);
   const [targetGender, setTargetGender] = useState<'male' | 'female' | 'unisex' | null>(null);
   const [targetAgeRange, setTargetAgeRange] = useState<string | null>(null);
   const [targetGeo, setTargetGeo] = useState('');
