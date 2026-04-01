@@ -40,7 +40,7 @@ const SellerProducts = () => {
     try {
       const compressed = await compressImage(file);
       const path = `${user!.id}/${Date.now()}.webp`;
-      const { error } = await supabase.storage.from('product-images').upload(path, file);
+      const { error } = await supabase.storage.from('product-images').upload(path, compressed);
       if (error) throw error;
       const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(path);
       setForm(f => ({ ...f, image_url: urlData.publicUrl }));

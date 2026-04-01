@@ -38,11 +38,7 @@ const TrackingPage = lazy(() => import("./pages/TrackingPage"));
 
 const queryClient = new QueryClient();
 
-const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center bg-background">
-    <div className="animate-pulse text-muted-foreground">Загрузка...</div>
-  </div>
-);
+const PageLoader = () => <PageSkeleton />;
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
