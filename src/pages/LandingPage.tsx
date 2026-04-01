@@ -63,7 +63,6 @@ const LandingPage = () => {
   const goAuth = () => navigate('/auth');
 
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-x-hidden relative">
     <div className="min-h-[100dvh] bg-background text-foreground overflow-x-hidden relative" style={{ minHeight: '-webkit-fill-available' }}>
       <AnimatedBackground />
 
