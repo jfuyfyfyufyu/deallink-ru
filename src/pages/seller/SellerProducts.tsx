@@ -38,8 +38,8 @@ const SellerProducts = () => {
   const uploadImage = async (file: File) => {
     setUploading(true);
     try {
-      const ext = file.name.split('.').pop();
-      const path = `${user!.id}/${Date.now()}.${ext}`;
+      const compressed = await compressImage(file);
+      const path = `${user!.id}/${Date.now()}.webp`;
       const { error } = await supabase.storage.from('product-images').upload(path, file);
       if (error) throw error;
       const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(path);
