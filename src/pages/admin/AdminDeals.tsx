@@ -82,7 +82,7 @@ const AdminDeals = () => {
           </Select>
         </div>
 
-        {isLoading && <p className="text-muted-foreground">Загрузка...</p>}
+        {isLoading && <CardListSkeleton />}
         {filtered?.map((deal: any) => (
           <Card key={deal.id} className="glass-card">
             <CardContent className="p-4">

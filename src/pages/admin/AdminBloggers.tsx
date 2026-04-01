@@ -173,7 +173,7 @@ const AdminBloggers = () => {
           </TabsContent>
 
           <TabsContent value="all" className="space-y-3 mt-4">
-            {isLoading && <p className="text-muted-foreground">Загрузка...</p>}
+            {isLoading && <CardListSkeleton />}
             {filtered?.map((b: any) => (
               <Card key={b.id} className="glass-card cursor-pointer hover:ring-1 hover:ring-primary/20 transition-all" onClick={() => setSelectedUser(b)}>
                 <CardContent className="flex items-center gap-4 p-4">

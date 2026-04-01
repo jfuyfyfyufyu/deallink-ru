@@ -178,7 +178,7 @@ const AdminSettings = () => {
 
         {/* User list */}
         <div className="space-y-3">
-          {isLoading && <p className="text-muted-foreground">Загрузка...</p>}
+          {isLoading && <CardListSkeleton />}
           {filtered.map((u: any) => {
             const Icon = roleIcons[u.role] || Users;
             return (

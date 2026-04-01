@@ -73,7 +73,7 @@ const TrackingPage = () => {
     }
   };
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-background"><p className="text-muted-foreground">Загрузка...</p></div>;
+  if (isLoading) return <PageSkeleton />;
   if (!deal) return <div className="min-h-screen flex items-center justify-center bg-background"><p className="text-muted-foreground">Сделка не найдена</p></div>;
 
   const currentStep = statusSteps.findIndex(s => s.key === deal.status);
