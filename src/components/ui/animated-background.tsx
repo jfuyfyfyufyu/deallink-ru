@@ -4,19 +4,31 @@ const AnimatedBackground = forwardRef<HTMLDivElement>((_, ref) => {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    // Defer heavy animated blobs until after first paint
-    const id = requestIdleCallback?.(() => setVisible(true)) ?? setTimeout(() => setVisible(true), 200);
-    return () => {
-      if (typeof id === 'number') {
-        (cancelIdleCallback ?? clearTimeout)(id);
-      }
+    // Defer heavy animated blobs until after first paint (mobile-safe)
+    if (typeof window === 'undefined') return;
+
+    const win = window as Window & {
+      requestIdleCallback?: (callback: () => void) => number;
+      cancelIdleCallback?: (id: number) => void;
     };
+
+    if (typeof win.requestIdleCallback === 'function') {
+      const idleId = win.requestIdleCallback(() => setVisible(true));
+      return () => {
+        if (typeof win.cancelIdleCallback === 'function') {
+          win.cancelIdleCallback(idleId);
+        }
+      };
+    }
+
+    const timer = win.setTimeout(() => setVisible(true), 200);
+    return () => win.clearTimeout(timer);
   }, []);
 
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
+    <div className="absolute inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
       <div
         className="absolute w-[500px] h-[500px] rounded-full opacity-[0.04]"
         style={{
