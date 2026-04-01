@@ -319,19 +319,32 @@ export default function AdminUserDetail({ user, open, onClose }: AdminUserDetail
                         <Badge variant={
                           qForm.moderation_status === 'approved' ? 'default' :
                           qForm.moderation_status === 'rejected' ? 'destructive' :
-                          qForm.moderation_status === 'pending' ? 'secondary' : 'outline'
+                          qForm.moderation_status === 'pending' ? 'secondary' :
+                          qForm.moderation_status === 'revision' ? 'secondary' : 'outline'
                         }>
                           {qForm.moderation_status === 'approved' ? '✅ Одобрена' :
                            qForm.moderation_status === 'rejected' ? '❌ Отклонена' :
-                           qForm.moderation_status === 'pending' ? '⏳ Ожидает' : '📝 Черновик'}
+                           qForm.moderation_status === 'pending' ? '⏳ Ожидает' :
+                           qForm.moderation_status === 'revision' ? '✏️ На доработке' : '📝 Черновик'}
                         </Badge>
                       </div>
-                      {qForm.moderation_status === 'pending' && (
-                        <div className="flex gap-2">
-                          <Button size="sm" className="flex-1" onClick={() => moderateQuestionnaire.mutate('approved')}>
-                            <CheckCircle className="h-4 w-4 mr-1" /> Одобрить
-                          </Button>
-                          <div className="flex-1 space-y-1">
+                      {(qForm.moderation_status === 'pending' || qForm.moderation_status === 'revision') && (
+                        <div className="space-y-2">
+                          <div className="flex gap-2">
+                            <Button size="sm" className="flex-1" onClick={() => moderateQuestionnaire.mutate('approved')}>
+                              <CheckCircle className="h-4 w-4 mr-1" /> Одобрить
+                            </Button>
+                            <Button size="sm" variant="outline" className="flex-1" onClick={() => {
+                              const note = prompt('Что нужно исправить:');
+                              if (note !== null) {
+                                setRejectNote(note);
+                                moderateQuestionnaire.mutate('revision');
+                              }
+                            }}>
+                              ✏️ Доработать
+                            </Button>
+                          </div>
+                          <div className="space-y-1">
                             <Input placeholder="Причина отклонения" value={rejectNote} onChange={e => setRejectNote(e.target.value)} className="h-8 text-xs" />
                             <Button size="sm" variant="destructive" className="w-full" onClick={() => moderateQuestionnaire.mutate('rejected')}>
                               Отклонить
@@ -343,6 +356,9 @@ export default function AdminUserDetail({ user, open, onClose }: AdminUserDetail
                         <Button size="sm" variant="outline" className="w-full" onClick={() => moderateQuestionnaire.mutate('pending')}>
                           Вернуть на модерацию
                         </Button>
+                      )}
+                      {qForm.moderation_note && (
+                        <p className="text-xs text-muted-foreground bg-muted/50 rounded p-2">💬 {qForm.moderation_note}</p>
                       )}
                     </CardContent>
                   </Card>
