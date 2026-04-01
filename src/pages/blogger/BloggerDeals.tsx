@@ -225,6 +225,8 @@ const BloggerDeals = () => {
       case 'cancel':
         if (confirm('Вы уверены, что хотите отменить сделку?')) {
           updateDeal.mutate({ id: deal.id, updates: { status: 'cancelled' } });
+          const bloggerName = user?.user_metadata?.name || 'Блогер';
+          notifyTg(deal.seller_id, '❌ Сделка отменена блогером', `Блогер ${bloggerName} отменил сделку по товару «${deal.products?.name || 'товар'}»`);
         }
         break;
       case 'archive': archiveDeal.mutate(deal.id); break;

@@ -101,10 +101,18 @@ const BloggerFeed = () => {
       });
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_, product) => {
       queryClient.invalidateQueries({ queryKey: ['blogger-feed'] });
       queryClient.invalidateQueries({ queryKey: ['blogger-my-deals'] });
       toast({ title: 'Заявка отправлена!' });
+      // Notify seller via Telegram
+      supabase.functions.invoke('telegram-notify', {
+        body: {
+          user_id: product.seller_id,
+          title: '📩 Новая заявка от блогера!',
+          message: `Блогер подал заявку на товар «${product.name}». Перейдите в раздел "Заявки" для рассмотрения.`,
+        },
+      }).catch(() => {});
     },
     onError: (e: any) => toast({ title: 'Ошибка', description: e.message, variant: 'destructive' }),
   });
