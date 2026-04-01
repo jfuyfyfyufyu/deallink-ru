@@ -129,6 +129,17 @@ const AutoRecommendations = () => {
     staleTime: 60_000,
   });
 
+  const notifyBloggerOffer = (blogger: RecommendedBlogger, productId: string) => {
+    const productName = products?.find((p) => p.id === productId)?.name || 'товар';
+    supabase.functions.invoke('telegram-notify', {
+      body: {
+        user_id: blogger.user_id,
+        title: '📦 Новое предложение сотрудничества!',
+        message: `Селлер предлагает вам сделку по товару «${productName}». Перейдите в раздел "Мои сделки" для просмотра.`,
+      },
+    }).catch(() => {});
+  };
+
   const createDeal = useMutation({
     mutationFn: async () => {
       if (!selectedProduct || !proposeBlogger) return;
@@ -142,6 +153,9 @@ const AutoRecommendations = () => {
       if (error) throw error;
     },
     onSuccess: () => {
+      if (proposeBlogger && selectedProduct) {
+        notifyBloggerOffer(proposeBlogger, selectedProduct);
+      }
       toast({ title: 'Сделка создана!' });
       setProposeBlogger(null);
       setSelectedProduct('');
