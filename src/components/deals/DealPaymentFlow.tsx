@@ -175,7 +175,8 @@ const DealPaymentFlow = ({ deal, isSeller, userId }: Props) => {
         invalidate();
         toast({ title: 'Обновлено!' });
         notify(deal.seller_id, '❌ Проблема с оплатой',
-          `Блогер ${bloggerName} сообщил о проблеме с получением оплаты по товару «${productName}»`);
+          `Блогер ${bloggerName} сообщил о проблеме с получением оплаты по товару «${productName}»`,
+          [[{ text: '📋 Открыть сделки', url: `${window.location.origin}/seller/deals` }]]);
       },
     });
   };

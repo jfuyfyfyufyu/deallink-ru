@@ -631,7 +631,8 @@ const BloggerDeals = () => {
                     qc.invalidateQueries({ queryKey: ['blogger-deals'] });
                     setActiveDeal(null);
                     toast({ title: 'Обновлено!' });
-                    notifyTg(activeDeal.seller_id, 'Контент опубликован', `Блогер ${bloggerName} опубликовал контент по товару «${pName}»`);
+                    notifyTg(activeDeal.seller_id, 'Контент опубликован', `Блогер ${bloggerName} опубликовал контент по товару «${pName}»`,
+                      [[{ text: '📋 Открыть сделки', url: `${window.location.origin}/seller/deals` }]]);
                   },
                 });
               }}>

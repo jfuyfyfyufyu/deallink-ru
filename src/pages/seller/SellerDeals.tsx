@@ -331,7 +331,8 @@ const SellerDeals = () => {
                       message: 'Селлер принял правки блогера', message_type: 'system',
                     });
                     supabase.functions.invoke('telegram-notify', {
-                      body: { user_id: detailDeal.blogger_id, title: 'Правки приняты', message: `Селлер принял ваши правки по товару «${detailDeal.products?.name || ''}»` },
+                      body: { user_id: detailDeal.blogger_id, title: 'Правки приняты', message: `Селлер принял ваши правки по товару «${detailDeal.products?.name || ''}»`,
+                        inline_keyboard: [[{ text: '📋 Открыть сделки', url: `${window.location.origin}/blogger/deals` }]] },
                     }).catch(() => {});
                     toast({ title: 'Правки приняты!' });
                     setDetailDeal(null);
