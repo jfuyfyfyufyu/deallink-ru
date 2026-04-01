@@ -52,7 +52,8 @@ const DealApprovalActions = ({ dealId, senderId, type, bloggerId, sellerId, prod
       // Notify blogger
       if (bloggerId && productName) {
         notify(bloggerId, `✅ ${labelCap} одобрен`,
-          `Селлер одобрил ${label} по товару «${productName}»`);
+          `Селлер одобрил ${label} по товару «${productName}»`,
+          [[{ text: '📋 Открыть сделки', url: `${window.location.origin}/blogger/deals` }]]);
       }
       onDone?.();
     },
