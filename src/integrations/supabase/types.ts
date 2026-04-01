@@ -568,6 +568,81 @@ export type Database = {
           },
         ]
       }
+      telegram_auth_codes: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          role: string
+          telegram_chat_id: number
+          telegram_first_name: string | null
+          telegram_username: string | null
+          used: boolean
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          role?: string
+          telegram_chat_id: number
+          telegram_first_name?: string | null
+          telegram_username?: string | null
+          used?: boolean
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          role?: string
+          telegram_chat_id?: number
+          telegram_first_name?: string | null
+          telegram_username?: string | null
+          used?: boolean
+        }
+        Relationships: []
+      }
+      telegram_bot_state: {
+        Row: {
+          id: number
+          update_offset: number
+          updated_at: string
+        }
+        Insert: {
+          id: number
+          update_offset?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          update_offset?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      telegram_messages: {
+        Row: {
+          chat_id: number
+          created_at: string
+          raw_update: Json
+          text: string | null
+          update_id: number
+        }
+        Insert: {
+          chat_id: number
+          created_at?: string
+          raw_update: Json
+          text?: string | null
+          update_id: number
+        }
+        Update: {
+          chat_id?: number
+          created_at?: string
+          raw_update?: Json
+          text?: string | null
+          update_id?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
