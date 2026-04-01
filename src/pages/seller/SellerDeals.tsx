@@ -176,7 +176,7 @@ const SellerDeals = () => {
       return utm;
     },
     onSuccess: (utm) => {
-      qc.invalidateQueries({ queryKey: ['seller-deals'] });
+      invalidateDeals();
       navigator.clipboard.writeText(utm);
       toast({ title: 'UTM создана и скопирована!' });
     },
