@@ -76,6 +76,15 @@ const BloggerAggregator = ({ trigger }: BloggerAggregatorProps) => {
     },
     onSuccess: () => {
       toast({ title: 'Сделка создана!' });
+      const productName = myProducts?.find(p => p.id === selectedProduct)?.name || 'товар';
+      // Notify blogger via Telegram
+      supabase.functions.invoke('telegram-notify', {
+        body: {
+          user_id: proposeBlogger.user_id,
+          title: '📦 Новое предложение сотрудничества!',
+          message: `Селлер предлагает вам сделку по товару «${productName}». Перейдите в раздел "Мои сделки" для просмотра.`,
+        },
+      }).catch(() => {});
       setProposeBlogger(null);
       setSelectedProduct('');
       queryClient.invalidateQueries({ queryKey: ['seller-deals'] });
