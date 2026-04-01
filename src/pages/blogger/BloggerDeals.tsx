@@ -426,15 +426,22 @@ const BloggerDeals = () => {
                     </Button>
                     <Button variant="destructive" className="w-full" onClick={async () => {
                       const productName = detailDeal.products?.name || 'товар';
-                      await supabase.from('deal_messages').insert({
-                        deal_id: detailDeal.id, sender_id: user!.id,
-                        message: 'Блогер отказался от задания', message_type: 'system',
-                      });
-                      updateDeal.mutate({ id: detailDeal.id, updates: { status: 'cancelled' } });
-                      supabase.functions.invoke('telegram-notify', {
-                        body: { user_id: detailDeal.seller_id, title: 'Задание отклонено', message: `Блогер ${user?.user_metadata?.name || ''} отказался от задания на товар «${productName}»` },
-                      }).catch(() => {});
-                      setDetailDeal(null);
+                      try {
+                        await supabase.from('deal_messages').insert({
+                          deal_id: detailDeal.id, sender_id: user!.id,
+                          message: 'Блогер отказался от задания', message_type: 'system',
+                        });
+                        const { error } = await supabase.from('deals').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', detailDeal.id).select('id').single();
+                        if (error) throw error;
+                        supabase.functions.invoke('telegram-notify', {
+                          body: { user_id: detailDeal.seller_id, title: 'Задание отклонено', message: `Блогер ${user?.user_metadata?.name || ''} отказался от задания на товар «${productName}»` },
+                        }).catch(() => {});
+                        setDetailDeal(null);
+                        invalidateDeals();
+                        toast({ title: 'Задание отклонено' });
+                      } catch (e: any) {
+                        toast({ title: 'Ошибка', description: e.message, variant: 'destructive' });
+                      }
                     }}>Отказаться от задания</Button>
                   </>
                 )}
