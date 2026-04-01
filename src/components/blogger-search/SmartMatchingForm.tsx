@@ -158,9 +158,9 @@ const SmartMatchingForm = ({ onSubmit }: Props) => {
             ]).map(pt => (
               <button
                 key={pt.id}
-                onClick={() => setPriceType(prev => prev === pt.id ? null : pt.id)}
+                onClick={() => setPriceTypes(prev => prev.includes(pt.id) ? prev.filter(x => x !== pt.id) : [...prev, pt.id])}
                 className={`flex-1 p-2 rounded-lg border text-xs font-medium transition-all ${
-                  priceType === pt.id ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/50'
+                  priceTypes.includes(pt.id) ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/50'
                 }`}
               >
                 {pt.label}
