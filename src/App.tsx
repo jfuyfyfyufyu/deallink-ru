@@ -36,7 +36,15 @@ const BloggerAnalytics = lazy(() => import("./pages/blogger/BloggerAnalytics"));
 
 const TrackingPage = lazy(() => import("./pages/TrackingPage"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,
+      gcTime: 300_000,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const PageLoader = () => <PageSkeleton />;
 

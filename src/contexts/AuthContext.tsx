@@ -85,7 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         initializing = false;
         setLoading(false);
       }
-    }, 6000);
+    }, 4000);
 
     const applySession = async (session: Session | null) => {
       if (!mounted) return;
@@ -104,7 +104,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!mounted || initializing) return;
 
-      setLoading(true);
       let nextSession = session;
 
       if (!nextSession && getStoredRefreshToken()) {
@@ -113,7 +112,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       await applySession(nextSession);
-      if (mounted) setLoading(false);
     });
 
     const bootstrapSession = async () => {
