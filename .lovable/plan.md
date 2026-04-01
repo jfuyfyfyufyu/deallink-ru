@@ -1,54 +1,86 @@
 
+Цель: убрать бесконечные загрузки и deadlock в первую очередь, затем снизить задержки на всех страницах.
 
-## Plan: Maximize Page Load Speed
+1) CRITICAL RECOVERY (сначала стабилизация)
 
-### Root Cause Analysis
+A. Auth bootstrap + deadlock (src/contexts/AuthContext.tsx)
+- ROOT CAUSE: `ProtectedRoute` ждёт `profile`, а `profile` может не прийти (ошибка/зависший запрос), из-за чего вечный `PageSkeleton`.
+- THE FIX:
+  - Добавить `withTimeout()`/`fetchWithTimeout()` (через `Promise.race`) для `getSession` и `fetchProfile`.
+  - Разделить состояния: `authLoading` и `profileLoading`.
+  - Гарантировать `setLoading(false)` в `finally`.
+  - `onAuthStateChange` сделать неблокирующим (без `await fetchProfile` в критическом потоке).
+  - Хранить `role` отдельно в контексте (из `user_roles` + fallback из кэша), чтобы роутинг не зависел от полного профиля.
+- STABILITY MODS: fallback на `profile=null`, таймауты, защита от unmounted state update.
+- PERFORMANCE GAIN: устраняется вечный лоадер; первый рендер после авторизации ускорится примерно на 0.3–1.0с.
 
-After profiling both dev and production environments, the core bottleneck is clear:
+B. Route gating (src/components/ProtectedRoute.tsx, src/pages/Index.tsx, src/components/AppSidebar.tsx)
+- ROOT CAUSE: текущая логика блокирует маршрут на `!profile`.
+- THE FIX:
+  - Перевести проверку доступа на `role` из AuthContext (не на `profile`).
+  - `profile` оставить только для UI-данных (имя/аватар), не для критичного доступа.
+  - В `Index` убрать зависимость редиректа от `profile`.
+- STABILITY MODS: даже при падении запроса профиля пользователь попадает в свой раздел, а не в бесконечный скелетон.
+- PERFORMANCE GAIN: исчезают зависания переходов между `/`, `/auth`, dashboard.
 
-**Auth bootstrap serializes everything.** The current flow blocks ALL rendering until both `getSession()` AND `fetchProfile()` complete sequentially. On mobile/slow networks this means 2-4 seconds of blank skeleton before any content appears.
+C. Error boundary (новый `src/components/AppErrorBoundary.tsx`, подключение в `src/App.tsx`)
+- ROOT CAUSE: runtime-ошибка может уронить всё дерево и дать “белый экран”.
+- THE FIX: глобальный ErrorBoundary вокруг роутов с fallback (перезагрузка/возврат на `/auth`).
+- STABILITY MODS: локализация краша вместо полного отказа приложения.
+- PERFORMANCE GAIN: не ускоряет напрямую, но убирает полный UX-обрыв.
 
-Production metrics confirm this:
-- FCP: 3.4s (target: under 1.5s)
-- `fetchProfile()` adds 200-800ms after session restore
-- Google Fonts loaded via CSS `@import` (render-blocking)
-- ProtectedRoute shows plain text "Загрузка..." instead of skeleton
+2) DEEP CODE AUDIT (после снятия deadlock)
 
-### Changes
+D. Таймауты и безопасные запросы (новый `src/lib/async-safe.ts`, применение в AuthPage и тяжёлых queryFn)
+- ROOT CAUSE: часть fetch/query без таймаута и без унифицированного fallback.
+- THE FIX:
+  - Обёртки: `withTimeout`, `safeQuery` (возврат `[]/null` + лог).
+  - Применить в `AuthPage` (`telegram-poll`, `telegram-auth`) и ключевых queryFn (admin/deals/feed/search).
+- STABILITY MODS: ни один загрузочный сценарий не остаётся без выхода.
+- PERFORMANCE GAIN: меньше зависших ожиданий, лучше отзывчивость на плохой сети.
 
-#### 1. Non-blocking auth bootstrap (AuthContext.tsx)
-Decouple user detection from profile loading. Set `loading=false` immediately after `getSession()` returns, then fetch profile in background. This lets the router render instantly.
+E. Убрать ref-warning шум (src/pages/LandingPage.tsx)
+- ROOT CAUSE: `CountUpValue` и `ScrollReveal` получают ref извне (dev tooling), но не `forwardRef`, что даёт постоянные warnings и лишнюю нагрузку.
+- THE FIX: обернуть оба компонента в `React.forwardRef` или убрать прокидывание ref через внешние обёртки.
+- STABILITY MODS: чистый рендер без warning-спама.
+- PERFORMANCE GAIN: меньше лишних dev-перерисовок/логов; стабильнее мобильный рендер.
 
-```text
-Current:  getSession → fetchProfile → setLoading(false) → render  (2-4s)
-New:      getSession → setLoading(false) → render  (0.5-1s)
-                     → fetchProfile in background → setProfile when ready
-```
+F. Тяжёлые выборки данных (admin/blogger/search/deals файлы)
+- ROOT CAUSE: много `.select('*')`, отсутствие лимитов/пагинации.
+- THE FIX:
+  - Заменить `*` на конкретные поля.
+  - Добавить лимит + пагинацию в админ-списках и аналитике.
+  - Для больших списков включить `keepPreviousData` и постепенную подгрузку.
+- STABILITY MODS: меньше шансов “подвесить” UI большими payload.
+- PERFORMANCE GAIN: снижение сетевой нагрузки примерно на 30–60% на тяжёлых страницах.
 
-Remove the complex `getStoredRefreshToken` helper — Supabase client already handles token persistence with `persistSession: true` and `autoRefreshToken: true`. The manual refresh logic adds latency and race conditions.
+G. Realtime invalidation storm (src/hooks/use-deals-realtime.ts)
+- ROOT CAUSE: широкая массовая инвалидция query keys при каждом событии.
+- THE FIX:
+  - Инвалидировать только релевантные ключи по роли/странице.
+  - Добавить debounce/throttle батч-инвалидации.
+- STABILITY MODS: меньше каскадных refetch и “замираний”.
+- PERFORMANCE GAIN: заметно быстрее навигация при активных обновлениях (до 40–70% меньше лишних refetch).
 
-#### 2. Fix ProtectedRoute loading state
-Replace `"Загрузка..."` text with `PageSkeleton` component for consistent visual feedback.
+3) PERFORMANCE OVERHEAD (только после стабильности)
 
-#### 3. Move Google Fonts out of CSS @import
-The `@import url(fonts.googleapis.com...)` in `index.css` is render-blocking. Move to `<link>` tags in `index.html` (already has `preconnect` and `preload` hints but the actual stylesheet load is still in CSS). Add `font-display: swap`.
+H. Lazy + UI cost trimming (src/App.tsx и списковые компоненты)
+- ROOT CAUSE: часть тяжёлых участков ещё рендерится слишком рано.
+- THE FIX:
+  - Лениво грузить AuthPage.
+  - В карточках/лентах добавить `loading="lazy"` у изображений.
+  - Для длинных списков (admin/blogger search) внедрить виртуализацию.
+- STABILITY MODS: ниже риск mobile/tablet render failure.
+- PERFORMANCE GAIN: ускорение FCP/LCP и скролла на слабых устройствах.
 
-#### 4. Preload critical JS chunks in index.html
-Add `<link rel="modulepreload">` for vendor and index chunks so the browser starts fetching them during HTML parse.
+Технические детали
+- БД/миграции: не требуются для этого emergency-фикса.
+- Безопасность ролей: доступ в UI переводим на роль из `user_roles` в контексте; профиль не должен быть блокирующим фактором.
+- Гарантия выхода из loading: все критичные async-пути имеют timeout + fallback + `finally`.
 
-### Files to Modify
-
-| File | Change |
-|------|--------|
-| `src/contexts/AuthContext.tsx` | Non-blocking profile fetch, remove manual token logic, simplify bootstrap |
-| `src/components/ProtectedRoute.tsx` | Use PageSkeleton instead of text |
-| `src/index.css` | Remove `@import` for Google Fonts |
-| `index.html` | Add font stylesheet `<link>`, add modulepreload hints |
-
-### Expected Results
-
-- FCP drops from 3.4s to ~1.2-1.5s (profile fetch no longer blocks render)
-- Auth-gated pages render skeleton → content instead of blank → skeleton → content
-- Font loading no longer blocks first paint
-- No behavior changes — profile still loads, just doesn't block UI
-
+План проверки (после внедрения)
+1. Логин/редирект для blogger/seller/admin: нет бесконечного скелетона.
+2. Искусственно “уронить” профильный запрос (timeout/error): интерфейс всё равно открывается.
+3. Мобильные вьюпорты 390/768/834: UI виден, без белого экрана.
+4. Переходы между dashboard-страницами: нет подвисаний при realtime-событиях.
+5. Консоль: исчезли warning’и про refs в LandingPage.
