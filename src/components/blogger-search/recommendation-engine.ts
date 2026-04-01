@@ -187,8 +187,9 @@ function cooperationCoeff(blogger: EnrichedBlogger, types: PriceType[]): number 
   return bp !== 'barter' ? 1 : 0.5;
 }
 
-function familyCoeff(blogger: EnrichedBlogger, familyRelevant: boolean, category: string): number {
-  if (!familyRelevant && !FAMILY_CATEGORIES.includes(category)) return 1;
+function familyCoeff(blogger: EnrichedBlogger, familyRelevant: boolean, categories: string[]): number {
+  const hasFamilyCategory = categories.some(c => FAMILY_CATEGORIES.includes(c));
+  if (!familyRelevant && !hasFamilyCategory) return 1;
   const hasChildren = blogger.questionnaire?.has_children ?? false;
   const hasPartner = blogger.questionnaire?.has_partner ?? false;
   if (hasChildren || hasPartner) return 1;
