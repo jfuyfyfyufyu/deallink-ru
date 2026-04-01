@@ -49,7 +49,7 @@ const queryClient = new QueryClient({
   },
 });
 
-const PageLoader = forwardRef<HTMLDivElement>((_, ref) => <PageSkeleton />);
+const PageLoader = () => <PageSkeleton />;
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
