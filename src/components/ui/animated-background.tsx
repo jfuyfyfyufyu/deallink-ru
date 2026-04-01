@@ -4,11 +4,26 @@ const AnimatedBackground = forwardRef<HTMLDivElement>((_, ref) => {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    // Defer heavy animated blobs until after first paint
-    const id = requestIdleCallback?.(() => setVisible(true)) ?? setTimeout(() => setVisible(true), 200);
+    // Defer heavy animated blobs until after first paint (mobile-safe)
+    let timer: number | null = null;
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      const idleId = (window as Window & { requestIdleCallback: (cb: () => void) => number }).requestIdleCallback(
+        () => setVisible(true),
+      );
+
+      return () => {
+        if ('cancelIdleCallback' in window) {
+          (window as Window & { cancelIdleCallback: (id: number) => void }).cancelIdleCallback(idleId);
+        }
+      };
+    }
+
+    timer = window.setTimeout(() => setVisible(true), 200);
+
     return () => {
-      if (typeof id === 'number') {
-        (cancelIdleCallback ?? clearTimeout)(id);
+      if (timer !== null) {
+        window.clearTimeout(timer);
       }
     };
   }, []);
