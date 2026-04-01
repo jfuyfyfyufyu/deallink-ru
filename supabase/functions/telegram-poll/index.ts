@@ -110,11 +110,38 @@ Deno.serve(async (req) => {
     }
 
     for (const update of updates) {
-      if (!update.message?.text) continue;
+      if (!update.message) continue;
 
       const msg = update.message;
       const chatId = msg.chat.id;
-      const text = msg.text.trim();
+      const text = msg.text?.trim() ?? '';
+
+      // Idempotency guard: process each Telegram update_id only once
+      const { error: messageInsertErr } = await supabase
+        .from('telegram_messages')
+        .insert({
+          update_id: update.update_id,
+          chat_id: chatId,
+          text: msg.text ?? null,
+          raw_update: update,
+        });
+
+      if (messageInsertErr) {
+        const isDuplicateUpdate = messageInsertErr.code === '23505' || messageInsertErr.message?.includes('duplicate key');
+        if (isDuplicateUpdate) {
+          continue;
+        }
+
+        return new Response(JSON.stringify({ error: messageInsertErr.message }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (!text) {
+        totalProcessed++;
+        continue;
+      }
+
       const username = msg.from?.username || null;
       const firstName = msg.from?.first_name || null;
 
@@ -123,69 +150,53 @@ Deno.serve(async (req) => {
         const parts = text.split(' ');
         const role = (parts[1] === 'seller') ? 'seller' : 'blogger';
 
-        // Check if an unused code already exists for this chat (created < 5 min ago)
+        // Reuse active code for this role (created < 5 min ago)
         const fiveMinAgo = new Date(Date.now() - 5 * 60_000).toISOString();
         const { data: existing } = await supabase
           .from('telegram_auth_codes')
           .select('code')
           .eq('telegram_chat_id', chatId)
+          .eq('role', role)
           .eq('used', false)
           .gte('created_at', fiveMinAgo)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
 
-        if (existing) {
-          // Already has a valid code — skip duplicate
-          continue;
+        const code = existing?.code ?? generateCode();
+
+        if (!existing) {
+          const { error: insertErr } = await supabase
+            .from('telegram_auth_codes')
+            .insert({
+              telegram_chat_id: chatId,
+              telegram_username: username,
+              telegram_first_name: firstName,
+              code,
+              role,
+            });
+
+          if (insertErr) {
+            console.error('Failed to insert auth code:', insertErr);
+            await sendMessage(chatId, '❌ Ошибка генерации кода. Попробуйте ещё раз.', LOVABLE_API_KEY, TELEGRAM_API_KEY);
+            totalProcessed++;
+            continue;
+          }
         }
 
-        const code = generateCode();
-
-        const { error: insertErr } = await supabase
-          .from('telegram_auth_codes')
-          .insert({
-            telegram_chat_id: chatId,
-            telegram_username: username,
-            telegram_first_name: firstName,
-            code,
-            role,
-          });
-
-        if (insertErr) {
-          console.error('Failed to insert auth code:', insertErr);
-          await sendMessage(chatId, '❌ Ошибка генерации кода. Попробуйте ещё раз.', LOVABLE_API_KEY, TELEGRAM_API_KEY);
-        } else {
-          const roleLabel = role === 'seller' ? 'Селлер' : 'Блогер';
-          await sendMessage(
-            chatId,
-            `👋 Добро пожаловать в <b>DealLink</b>!\n\n` +
-            `Ваш код для входа: <code>${code}</code>\n\n` +
-            `Роль: <b>${roleLabel}</b>\n\n` +
-            `Введите этот код на сайте для авторизации.`,
-            LOVABLE_API_KEY,
-            TELEGRAM_API_KEY,
-          );
-        }
+        const roleLabel = role === 'seller' ? 'Селлер' : 'Блогер';
+        await sendMessage(
+          chatId,
+          `👋 Добро пожаловать в <b>DealLink</b>!\n\n` +
+          `Ваш код для входа: <code>${code}</code>\n\n` +
+          `Роль: <b>${roleLabel}</b>\n\n` +
+          `Введите этот код на сайте для авторизации.`,
+          LOVABLE_API_KEY,
+          TELEGRAM_API_KEY,
+        );
       }
 
       totalProcessed++;
-    }
-
-    // Store raw messages
-    const rows = updates
-      .filter((u: any) => u.message)
-      .map((u: any) => ({
-        update_id: u.update_id,
-        chat_id: u.message.chat.id,
-        text: u.message.text ?? null,
-        raw_update: u,
-      }));
-
-    if (rows.length > 0) {
-      await supabase
-        .from('telegram_messages')
-        .upsert(rows, { onConflict: 'update_id' });
     }
 
     // Advance offset
