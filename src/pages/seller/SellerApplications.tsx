@@ -145,7 +145,7 @@ const SellerApplications = () => {
                 <Button size="sm" className="flex-1" onClick={() => openApproveDialog(app)} disabled={updateDeal.isPending}>
                   <FileText className="h-4 w-4 mr-1" /> Рассмотреть
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => updateDeal.mutate({ id: app.id, status: 'cancelled' })} disabled={updateDeal.isPending}>
+                <Button size="sm" variant="outline" onClick={() => updateDeal.mutate({ id: app.id, status: 'cancelled', bloggerId: app.blogger_id, productName: app.products?.name })} disabled={updateDeal.isPending}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
