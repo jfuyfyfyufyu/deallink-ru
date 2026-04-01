@@ -204,7 +204,7 @@ const SellerDeals = () => {
         product_id: deal.product_id, blogger_id: deal.blogger?.user_id, seller_id: user.id, status: 'requested', initiated_by: 'seller',
       });
       if (error) throw error;
-      qc.invalidateQueries({ queryKey: ['seller-deals'] });
+      invalidateDeals();
       toast({ title: 'Новая сделка создана!' });
       // Notify blogger
       supabase.functions.invoke('telegram-notify', {
