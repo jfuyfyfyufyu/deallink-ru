@@ -42,6 +42,7 @@ export type Database = {
           current_step: number | null
           custom_price: number | null
           deals_experience: string | null
+          discipline_index: number | null
           does_photo: boolean | null
           does_video: boolean | null
           excluded_categories: string[] | null
@@ -64,6 +65,7 @@ export type Database = {
           pricing_type: string | null
           products_per_month: string | null
           purchasing_power: string | null
+          quality_index: number | null
           ready_for_photo_review: boolean | null
           ready_for_reminders: boolean | null
           ready_for_shorts: boolean | null
@@ -114,6 +116,7 @@ export type Database = {
           current_step?: number | null
           custom_price?: number | null
           deals_experience?: string | null
+          discipline_index?: number | null
           does_photo?: boolean | null
           does_video?: boolean | null
           excluded_categories?: string[] | null
@@ -136,6 +139,7 @@ export type Database = {
           pricing_type?: string | null
           products_per_month?: string | null
           purchasing_power?: string | null
+          quality_index?: number | null
           ready_for_photo_review?: boolean | null
           ready_for_reminders?: boolean | null
           ready_for_shorts?: boolean | null
@@ -186,6 +190,7 @@ export type Database = {
           current_step?: number | null
           custom_price?: number | null
           deals_experience?: string | null
+          discipline_index?: number | null
           does_photo?: boolean | null
           does_video?: boolean | null
           excluded_categories?: string[] | null
@@ -208,6 +213,7 @@ export type Database = {
           pricing_type?: string | null
           products_per_month?: string | null
           purchasing_power?: string | null
+          quality_index?: number | null
           ready_for_photo_review?: boolean | null
           ready_for_reminders?: boolean | null
           ready_for_shorts?: boolean | null
@@ -305,15 +311,20 @@ export type Database = {
           content_url: string | null
           created_at: string
           deadline_content: string | null
+          deadline_final: string | null
           deadline_pickup: string | null
           id: string
           initiated_by: string | null
           is_overdue: boolean | null
           order_number: string | null
+          order_screenshot_url: string | null
           payment_amount: number | null
+          payment_confirmed_at: string | null
           payment_details: Json | null
           payment_note: string | null
           payment_proof_url: string | null
+          payment_requested_at: string | null
+          payment_screenshot_url: string | null
           payment_status: string | null
           pickup_proof_url: string | null
           product_id: string
@@ -324,6 +335,7 @@ export type Database = {
           seller_id: string
           social_links: Json | null
           status: string
+          status_history: Json | null
           tracking_token: string | null
           updated_at: string
           utm_url: string | null
@@ -336,15 +348,20 @@ export type Database = {
           content_url?: string | null
           created_at?: string
           deadline_content?: string | null
+          deadline_final?: string | null
           deadline_pickup?: string | null
           id?: string
           initiated_by?: string | null
           is_overdue?: boolean | null
           order_number?: string | null
+          order_screenshot_url?: string | null
           payment_amount?: number | null
+          payment_confirmed_at?: string | null
           payment_details?: Json | null
           payment_note?: string | null
           payment_proof_url?: string | null
+          payment_requested_at?: string | null
+          payment_screenshot_url?: string | null
           payment_status?: string | null
           pickup_proof_url?: string | null
           product_id: string
@@ -355,6 +372,7 @@ export type Database = {
           seller_id: string
           social_links?: Json | null
           status?: string
+          status_history?: Json | null
           tracking_token?: string | null
           updated_at?: string
           utm_url?: string | null
@@ -367,15 +385,20 @@ export type Database = {
           content_url?: string | null
           created_at?: string
           deadline_content?: string | null
+          deadline_final?: string | null
           deadline_pickup?: string | null
           id?: string
           initiated_by?: string | null
           is_overdue?: boolean | null
           order_number?: string | null
+          order_screenshot_url?: string | null
           payment_amount?: number | null
+          payment_confirmed_at?: string | null
           payment_details?: Json | null
           payment_note?: string | null
           payment_proof_url?: string | null
+          payment_requested_at?: string | null
+          payment_screenshot_url?: string | null
           payment_status?: string | null
           pickup_proof_url?: string | null
           product_id?: string
@@ -386,6 +409,7 @@ export type Database = {
           seller_id?: string
           social_links?: Json | null
           status?: string
+          status_history?: Json | null
           tracking_token?: string | null
           updated_at?: string
           utm_url?: string | null
