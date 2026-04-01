@@ -162,7 +162,7 @@ const BloggerFeed = () => {
           </Select>
         </div>
 
-        {isLoading && <p className="text-muted-foreground">Загрузка...</p>}
+        {isLoading && <CardListSkeleton />}
         {filteredProducts.map((p: any) => {
           const applied = appliedProducts.has(p.id);
           return (
