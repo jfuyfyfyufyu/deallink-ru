@@ -47,12 +47,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
     try {
+      const query = supabase
+        .from('profiles')
+        .select('id, user_id, name, telegram_id, avatar_url, role, trust_score')
+        .eq('user_id', userId)
+        .single();
       const { data, error } = await withTimeout(
-        supabase
-          .from('profiles')
-          .select('id, user_id, name, telegram_id, avatar_url, role, trust_score')
-          .eq('user_id', userId)
-          .single(),
+        query.then(res => res),
         6000
       );
       if (error) throw error;
