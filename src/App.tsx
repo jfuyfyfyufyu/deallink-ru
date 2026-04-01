@@ -63,7 +63,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<AuthPage />} />
-              
+
               {/* Admin */}
               <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
               <Route path="/admin/bloggers" element={<ProtectedRoute allowedRoles={['admin']}><AdminBloggers /></ProtectedRoute>} />
