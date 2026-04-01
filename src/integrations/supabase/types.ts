@@ -33,6 +33,7 @@ export type Database = {
           children_ages: string | null
           city: string | null
           completed: boolean | null
+          completion_probability: number | null
           content_examples: string[] | null
           content_style: string[] | null
           content_types: string[] | null
@@ -78,6 +79,7 @@ export type Database = {
           self_speed: number | null
           social_platforms: Json | null
           speed_days: number | null
+          speed_index: number | null
           updated_at: string
           user_id: string
           views_trend: string | null
@@ -102,6 +104,7 @@ export type Database = {
           children_ages?: string | null
           city?: string | null
           completed?: boolean | null
+          completion_probability?: number | null
           content_examples?: string[] | null
           content_style?: string[] | null
           content_types?: string[] | null
@@ -147,6 +150,7 @@ export type Database = {
           self_speed?: number | null
           social_platforms?: Json | null
           speed_days?: number | null
+          speed_index?: number | null
           updated_at?: string
           user_id: string
           views_trend?: string | null
@@ -171,6 +175,7 @@ export type Database = {
           children_ages?: string | null
           city?: string | null
           completed?: boolean | null
+          completion_probability?: number | null
           content_examples?: string[] | null
           content_style?: string[] | null
           content_types?: string[] | null
@@ -216,6 +221,7 @@ export type Database = {
           self_speed?: number | null
           social_platforms?: Json | null
           speed_days?: number | null
+          speed_index?: number | null
           updated_at?: string
           user_id?: string
           views_trend?: string | null
@@ -298,6 +304,7 @@ export type Database = {
           deadline_pickup: string | null
           id: string
           initiated_by: string | null
+          is_overdue: boolean | null
           order_number: string | null
           payment_amount: number | null
           payment_details: Json | null
@@ -313,7 +320,10 @@ export type Database = {
           seller_id: string
           social_links: Json | null
           status: string
+          tracking_token: string | null
           updated_at: string
+          utm_url: string | null
+          views_count: number | null
         }
         Insert: {
           blogger_id: string
@@ -324,6 +334,7 @@ export type Database = {
           deadline_pickup?: string | null
           id?: string
           initiated_by?: string | null
+          is_overdue?: boolean | null
           order_number?: string | null
           payment_amount?: number | null
           payment_details?: Json | null
@@ -339,7 +350,10 @@ export type Database = {
           seller_id: string
           social_links?: Json | null
           status?: string
+          tracking_token?: string | null
           updated_at?: string
+          utm_url?: string | null
+          views_count?: number | null
         }
         Update: {
           blogger_id?: string
@@ -350,6 +364,7 @@ export type Database = {
           deadline_pickup?: string | null
           id?: string
           initiated_by?: string | null
+          is_overdue?: boolean | null
           order_number?: string | null
           payment_amount?: number | null
           payment_details?: Json | null
@@ -365,7 +380,10 @@ export type Database = {
           seller_id?: string
           social_links?: Json | null
           status?: string
+          tracking_token?: string | null
           updated_at?: string
+          utm_url?: string | null
+          views_count?: number | null
         }
         Relationships: [
           {
