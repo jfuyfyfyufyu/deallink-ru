@@ -65,7 +65,7 @@ const DealApprovalActions = ({ dealId, senderId, type, bloggerId, sellerId, prod
 
   const reject = useMutation({
     mutationFn: async () => {
-      const { error: dealErr } = await supabase.from('deals').update({ [field]: 'rejected' }).eq('id', dealId);
+      const { error: dealErr } = await supabase.from('deals').update({ [field]: 'rejected' }).eq('id', dealId).select('id').single();
       if (dealErr) throw dealErr;
       await supabase.from('deal_messages').insert({
         deal_id: dealId,
@@ -75,11 +75,8 @@ const DealApprovalActions = ({ dealId, senderId, type, bloggerId, sellerId, prod
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['seller-deals'] });
-      queryClient.invalidateQueries({ queryKey: ['blogger-deals'] });
-      queryClient.invalidateQueries({ queryKey: ['deal-messages', dealId] });
+      invalidateDeals();
       toast({ title: `${labelCap} отклонён` });
-      // Notify blogger
       if (bloggerId && productName) {
         notify(bloggerId, `❌ ${labelCap} отклонён`,
           `Селлер отклонил ${label} по товару «${productName}».\n\nПричина: ${reason || 'Без комментария'}`,
