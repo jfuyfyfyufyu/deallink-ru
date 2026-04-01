@@ -13,6 +13,7 @@ import { Plus, Package, ExternalLink, Pencil, Trash2, ToggleLeft, ToggleRight, U
 import BloggerSearchSheet from '@/components/blogger-search/BloggerSearchSheet';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { compressImage } from '@/lib/image-compress';
 
 const emptyForm = { name: '', marketplace_url: '', description: '', requirements: '', target_audience: '', min_views: 0, image_url: '', deadline_days: 0 };
 
@@ -38,9 +39,9 @@ const SellerProducts = () => {
   const uploadImage = async (file: File) => {
     setUploading(true);
     try {
-      const ext = file.name.split('.').pop();
-      const path = `${user!.id}/${Date.now()}.${ext}`;
-      const { error } = await supabase.storage.from('product-images').upload(path, file);
+      const compressed = await compressImage(file);
+      const path = `${user!.id}/${Date.now()}.webp`;
+      const { error } = await supabase.storage.from('product-images').upload(path, compressed);
       if (error) throw error;
       const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(path);
       setForm(f => ({ ...f, image_url: urlData.publicUrl }));

@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Star } from 'lucide-react';
+import { CardListSkeleton } from '@/components/ui/skeletons';
 
 const SellerReviews = () => {
   const { user } = useAuth();
@@ -24,7 +25,7 @@ const SellerReviews = () => {
   return (
     <DashboardLayout title="Мои отзывы">
       <div className="space-y-3 animate-fade-in">
-        {isLoading && <p className="text-muted-foreground">Загрузка...</p>}
+        {isLoading && <CardListSkeleton />}
         {reviews?.map((r: any) => (
           <Card key={r.id} className="glass-card">
             <CardContent className="p-4">

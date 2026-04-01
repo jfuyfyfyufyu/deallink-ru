@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CardListSkeleton } from '@/components/ui/skeletons';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -105,7 +106,7 @@ const SellerApplications = () => {
   return (
     <DashboardLayout title="Заявки блогеров">
       <div className="space-y-3 animate-fade-in">
-        {isLoading && <p className="text-muted-foreground">Загрузка...</p>}
+        {isLoading && <CardListSkeleton />}
         {applications?.map((app: any) => (
           <Card key={app.id} className="glass-card">
             <CardContent className="p-4">

@@ -1,4 +1,5 @@
 import DashboardLayout from '@/components/DashboardLayout';
+import { CardListSkeleton } from '@/components/ui/skeletons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -81,7 +82,7 @@ const AdminDeals = () => {
           </Select>
         </div>
 
-        {isLoading && <p className="text-muted-foreground">Загрузка...</p>}
+        {isLoading && <CardListSkeleton />}
         {filtered?.map((deal: any) => (
           <Card key={deal.id} className="glass-card">
             <CardContent className="p-4">

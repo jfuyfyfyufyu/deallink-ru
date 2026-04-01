@@ -1,4 +1,5 @@
 import { useParams } from 'react-router-dom';
+import { PageSkeleton } from '@/components/ui/skeletons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -73,7 +74,7 @@ const TrackingPage = () => {
     }
   };
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-background"><p className="text-muted-foreground">Загрузка...</p></div>;
+  if (isLoading) return <PageSkeleton />;
   if (!deal) return <div className="min-h-screen flex items-center justify-center bg-background"><p className="text-muted-foreground">Сделка не найдена</p></div>;
 
   const currentStep = statusSteps.findIndex(s => s.key === deal.status);

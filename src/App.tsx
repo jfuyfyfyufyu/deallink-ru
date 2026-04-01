@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { lazy, Suspense } from "react";
+import { PageSkeleton } from "@/components/ui/skeletons";
 
 // Eager: landing & auth (small, always needed)
 import Index from "./pages/Index";
@@ -37,11 +38,7 @@ const TrackingPage = lazy(() => import("./pages/TrackingPage"));
 
 const queryClient = new QueryClient();
 
-const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center bg-background">
-    <div className="animate-pulse text-muted-foreground">Загрузка...</div>
-  </div>
-);
+const PageLoader = () => <PageSkeleton />;
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

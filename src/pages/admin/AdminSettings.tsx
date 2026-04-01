@@ -1,4 +1,5 @@
 import DashboardLayout from '@/components/DashboardLayout';
+import { CardListSkeleton } from '@/components/ui/skeletons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -177,7 +178,7 @@ const AdminSettings = () => {
 
         {/* User list */}
         <div className="space-y-3">
-          {isLoading && <p className="text-muted-foreground">Загрузка...</p>}
+          {isLoading && <CardListSkeleton />}
           {filtered.map((u: any) => {
             const Icon = roleIcons[u.role] || Users;
             return (

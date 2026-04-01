@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Package, ExternalLink, Check, Search, SlidersHorizontal } from 'lucide-react';
+import { CardListSkeleton } from '@/components/ui/skeletons';
 import { useToast } from '@/hooks/use-toast';
 import { useDealsRealtime } from '@/hooks/use-deals-realtime';
 import { useState, useMemo } from 'react';
@@ -162,7 +163,7 @@ const BloggerFeed = () => {
           </Select>
         </div>
 
-        {isLoading && <p className="text-muted-foreground">Загрузка...</p>}
+        {isLoading && <CardListSkeleton />}
         {filteredProducts.map((p: any) => {
           const applied = appliedProducts.has(p.id);
           return (
