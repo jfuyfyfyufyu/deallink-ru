@@ -55,10 +55,18 @@ const BloggerDeals = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from('deals')
-        .select('*, products(name, marketplace_url, description, image_url, requirements, deadline_days), seller:profiles!deals_seller_id_fkey(name, user_id, telegram_id)')
+        .select('*, products(name, marketplace_url, description, image_url, requirements, deadline_days)')
         .eq('blogger_id', user!.id)
         .order('updated_at', { ascending: false });
-      return data || [];
+      if (!data || data.length === 0) return [];
+      // Fetch seller profiles separately
+      const sellerIds = [...new Set(data.map((d: any) => d.seller_id))];
+      const { data: sellers } = await supabase
+        .from('profiles')
+        .select('user_id, name, telegram_id')
+        .in('user_id', sellerIds);
+      const sellerMap = new Map((sellers || []).map((s: any) => [s.user_id, s]));
+      return data.map((d: any) => ({ ...d, seller: sellerMap.get(d.seller_id) || null }));
     },
     enabled: !!user,
   });

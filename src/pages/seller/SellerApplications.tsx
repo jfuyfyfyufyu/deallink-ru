@@ -33,12 +33,20 @@ const SellerApplications = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from('deals')
-        .select('*, products(name, requirements, deadline_days), blogger:profiles!deals_blogger_id_fkey(name, trust_score, niche, subscribers_count, content_formats, bio)')
+        .select('*, products(name, requirements, deadline_days)')
         .eq('seller_id', user!.id)
         .eq('status', 'requested')
         .eq('initiated_by', 'blogger')
         .order('created_at', { ascending: false });
-      return data || [];
+      if (!data || data.length === 0) return [];
+      // Fetch blogger profiles separately
+      const bloggerIds = [...new Set(data.map((d: any) => d.blogger_id))];
+      const { data: bloggers } = await supabase
+        .from('profiles')
+        .select('user_id, name, trust_score, niche, subscribers_count, content_formats, bio')
+        .in('user_id', bloggerIds);
+      const bloggerMap = new Map((bloggers || []).map((b: any) => [b.user_id, b]));
+      return data.map((d: any) => ({ ...d, blogger: bloggerMap.get(d.blogger_id) || null }));
     },
     enabled: !!user,
   });
