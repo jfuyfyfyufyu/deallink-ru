@@ -159,10 +159,11 @@ const BloggerDeals = () => {
 
   const submitReviewForApproval = useMutation({
     mutationFn: async ({ dealId, text, mediaUrls, sellerId, pName }: { dealId: string; text: string; mediaUrls: string[]; sellerId: string; pName: string }) => {
-      const { error } = await supabase.from('deals').update({
-        review_text: text, review_media_urls: mediaUrls, review_status: 'submitted',
-      }).eq('id', dealId);
+      const { data, error } = await supabase.from('deals').update({
+        review_text: text, review_media_urls: mediaUrls, review_status: 'submitted', updated_at: new Date().toISOString(),
+      }).eq('id', dealId).select('id').single();
       if (error) throw error;
+      if (!data) throw new Error('Не удалось обновить сделку');
       await supabase.from('deal_messages').insert({
         deal_id: dealId, sender_id: user!.id,
         message: `Отзыв на согласование:\n${text}`, message_type: 'review_submission',
