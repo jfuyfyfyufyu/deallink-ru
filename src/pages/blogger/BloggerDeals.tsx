@@ -137,8 +137,8 @@ const BloggerDeals = () => {
       notifyTg(sellerId, '🎬 Контент на согласование',
         `Блогер ${bloggerName} отправил контент по товару «${pName}». Ждёт вашего согласования.`,
         [[
-          { text: '✅ Согласовать', callback_data: `approve_content_${dealId}` },
-          { text: '✏️ Правки', callback_data: `reject_content_${dealId}` },
+          { text: '✅ Согласовать', url: `${window.location.origin}/seller/deals` },
+          { text: '✏️ Правки', url: `${window.location.origin}/seller/deals` },
         ]]);
     },
     onSuccess: () => {
