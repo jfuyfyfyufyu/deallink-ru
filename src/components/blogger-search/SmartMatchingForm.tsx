@@ -51,15 +51,14 @@ interface Props {
 
 const SmartMatchingForm = ({ onSubmit }: Props) => {
   const [productUrl, setProductUrl] = useState('');
-  const [category, setCategory] = useState('');
-  const [price, setPrice] = useState('');
+  const [categories, setCategories] = useState<string[]>([]);
   const [goals] = useState<SearchGoal[]>([]);
   const [platforms, setPlatforms] = useState<SocialPlatform[]>([]);
   const [minReach, setMinReach] = useState('');
   const [reachMode, setReachMode] = useState<'per_platform' | 'total'>('total');
   const [speed, setSpeed] = useState<SpeedFilter | null>(null);
   const [minRiskScore, setMinRiskScore] = useState(0);
-  const [priceType, setPriceType] = useState<PriceType | null>(null);
+  const [priceTypes, setPriceTypes] = useState<PriceType[]>([]);
   const [targetGender, setTargetGender] = useState<'male' | 'female' | 'unisex' | null>(null);
   const [targetAgeRange, setTargetAgeRange] = useState<string | null>(null);
   const [targetGeo, setTargetGeo] = useState('');
@@ -69,6 +68,10 @@ const SmartMatchingForm = ({ onSubmit }: Props) => {
 
 
 
+
+  const toggleCategory = (c: string) => {
+    setCategories(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
+  };
 
   const togglePlatform = (p: SocialPlatform) => {
     setPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
@@ -97,20 +100,21 @@ const SmartMatchingForm = ({ onSubmit }: Props) => {
           <Input placeholder="https://wildberries.ru/catalog/..." value={productUrl} onChange={e => setProductUrl(e.target.value)} className="mt-1" />
         </div>
 
-        {/* Category + Price */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label className="text-xs">Категория</Label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger className="mt-1"><SelectValue placeholder="Выбрать" /></SelectTrigger>
-              <SelectContent>
-                {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">Цена товара, ₽</Label>
-            <Input type="number" placeholder="1500" value={price} onChange={e => setPrice(e.target.value)} className="mt-1" />
+        {/* Categories (multi-select) */}
+        <div>
+          <Label className="text-xs mb-1.5 block">Категории</Label>
+          <div className="flex flex-wrap gap-1.5">
+            {CATEGORIES.map(c => (
+              <button
+                key={c}
+                onClick={() => toggleCategory(c)}
+                className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${
+                  categories.includes(c) ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/50'
+                }`}
+              >
+                {c}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -154,9 +158,9 @@ const SmartMatchingForm = ({ onSubmit }: Props) => {
             ]).map(pt => (
               <button
                 key={pt.id}
-                onClick={() => setPriceType(prev => prev === pt.id ? null : pt.id)}
+                onClick={() => setPriceTypes(prev => prev.includes(pt.id) ? prev.filter(x => x !== pt.id) : [...prev, pt.id])}
                 className={`flex-1 p-2 rounded-lg border text-xs font-medium transition-all ${
-                  priceType === pt.id ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/50'
+                  priceTypes.includes(pt.id) ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/50'
                 }`}
               >
                 {pt.label}
@@ -283,7 +287,7 @@ const SmartMatchingForm = ({ onSubmit }: Props) => {
       </div>
 
       <Button className="w-full" size="lg" onClick={() => onSubmit({
-        productUrl, category, price, goals, platforms, minReach, reachMode, speed, minRiskScore, priceType,
+        productUrl, categories, goals, platforms, minReach, reachMode, speed, minRiskScore, priceTypes,
         targetGender, targetAgeRange, targetGeo: targetGeo || null, familyRelevant, weights,
       })}>
         Показать блогеров

@@ -14,15 +14,14 @@ export interface PriorityWeights {
 }
 
 export interface SellerCriteria {
-  category: string;
-  productPrice: number;
+  categories: string[];
   targetGender: 'male' | 'female' | 'unisex' | null;
   targetAgeRange: string | null;
   targetGeo: string | null;
   platforms: SocialPlatform[];
   minReach: number;
   reachMode: 'per_platform' | 'total';
-  cooperationType: PriceType | null;
+  cooperationTypes: PriceType[];
   speed: SpeedFilter | null;
   familyRelevant: boolean;
   weights: PriorityWeights;
@@ -67,13 +66,16 @@ const FAMILY_CATEGORIES = ['Дети', 'Дом и уют'];
 
 // ── Coefficient functions ──────────────────────────────────
 
-function categoryCoeff(bloggerNiche: string | null, sellerCategory: string): number {
-  if (!bloggerNiche || !sellerCategory) return 0.5;
-  const bn = bloggerNiche.trim();
-  const sc = sellerCategory.trim();
-  if (bn.toLowerCase() === sc.toLowerCase()) return 1;
-  const related = RELATED_CATEGORIES[sc] || [];
-  if (related.some(r => r.toLowerCase() === bn.toLowerCase())) return 0.6;
+function categoryCoeff(bloggerNiche: string | null, sellerCategories: string[]): number {
+  if (!bloggerNiche || sellerCategories.length === 0) return 0.5;
+  const bn = bloggerNiche.trim().toLowerCase();
+  // Direct match with any selected category
+  if (sellerCategories.some(sc => sc.trim().toLowerCase() === bn)) return 1;
+  // Related match
+  for (const sc of sellerCategories) {
+    const related = RELATED_CATEGORIES[sc.trim()] || [];
+    if (related.some(r => r.toLowerCase() === bn)) return 0.6;
+  }
   return 0;
 }
 
@@ -172,11 +174,14 @@ function speedCoeff(blogger: EnrichedBlogger, targetSpeed: SpeedFilter | null): 
   return 0.7;
 }
 
-function cooperationCoeff(blogger: EnrichedBlogger, type: PriceType | null): number {
-  if (!type) return 1;
+function cooperationCoeff(blogger: EnrichedBlogger, types: PriceType[]): number {
+  if (types.length === 0) return 1;
   if (!blogger.questionnaire) return 0.5;
-  if (type === 'barter') return blogger.questionnaire.pricing_type === 'barter' ? 1 : 0.3;
-  return blogger.questionnaire.pricing_type !== 'barter' ? 1 : 0.5;
+  const bp = blogger.questionnaire.pricing_type;
+  // Both selected = everyone matches
+  if (types.includes('barter') && types.includes('paid')) return 1;
+  if (types.includes('barter')) return bp === 'barter' ? 1 : 0.3;
+  return bp !== 'barter' ? 1 : 0.5;
 }
 
 function familyCoeff(blogger: EnrichedBlogger, familyRelevant: boolean, category: string): number {
@@ -197,18 +202,17 @@ function passesHardFilter(blogger: EnrichedBlogger, criteria: SellerCriteria): b
     if (!hasAny) return false;
   }
 
-  // Barter filter: exclude non-barter bloggers if seller wants only barter
-  if (criteria.cooperationType === 'barter' && blogger.questionnaire?.pricing_type && blogger.questionnaire.pricing_type !== 'barter') {
+  // Barter filter: exclude non-barter bloggers if seller wants ONLY barter
+  if (criteria.cooperationTypes.length === 1 && criteria.cooperationTypes[0] === 'barter' && blogger.questionnaire?.pricing_type && blogger.questionnaire.pricing_type !== 'barter') {
     return false;
   }
 
-  // Excluded categories (blogger doesn't want this category)
-  if (blogger.questionnaire?.excluded_categories?.length) {
-    if (blogger.questionnaire.excluded_categories.some(
-      ec => ec.toLowerCase() === criteria.category.toLowerCase()
-    )) {
-      return false;
-    }
+  // Excluded categories (blogger doesn't want any of seller's categories)
+  if (blogger.questionnaire?.excluded_categories?.length && criteria.categories.length > 0) {
+    const allExcluded = criteria.categories.every(cat =>
+      blogger.questionnaire!.excluded_categories.some(ec => ec.toLowerCase() === cat.toLowerCase())
+    );
+    if (allExcluded) return false;
   }
 
   return true;
@@ -247,7 +251,7 @@ export function scoreAndRankBloggers(
   return filtered
     .map(blogger => {
       const coeffs: Record<string, number> = {
-        category: categoryCoeff(blogger.niche, criteria.category),
+        category: categoryCoeff(blogger.niche, criteria.categories),
         geo: geoCoeff(blogger.questionnaire?.audience_geo || null, blogger.questionnaire?.city || blogger.questionnaire?.country || null, criteria.targetGeo),
         audience: (
           audienceGenderCoeff(blogger.questionnaire?.audience_gender_male ?? 50, criteria.targetGender) +
@@ -256,8 +260,8 @@ export function scoreAndRankBloggers(
         reach: reachCoeff(blogger, criteria.minReach, criteria.platforms, criteria.reachMode),
         reliability: reliabilityCoeff(blogger),
         speed: speedCoeff(blogger, criteria.speed),
-        cooperation: cooperationCoeff(blogger, criteria.cooperationType),
-        family: familyCoeff(blogger, criteria.familyRelevant, criteria.category),
+        cooperation: cooperationCoeff(blogger, criteria.cooperationTypes),
+        family: familyCoeff(blogger, criteria.familyRelevant, criteria.categories[0] || ''),
       };
 
       // Weighted score
@@ -301,7 +305,7 @@ export function scoreAndRankBloggers(
       }
 
       if (coeffs.geo >= 1 && criteria.targetGeo) reasons.push('Совпадает гео');
-      if (coeffs.cooperation >= 1 && criteria.cooperationType) reasons.push(criteria.cooperationType === 'barter' ? 'Бартер' : 'С доплатой');
+      if (coeffs.cooperation >= 1 && criteria.cooperationTypes.length > 0) reasons.push(criteria.cooperationTypes.includes('barter') && !criteria.cooperationTypes.includes('paid') ? 'Бартер' : criteria.cooperationTypes.includes('paid') && !criteria.cooperationTypes.includes('barter') ? 'С доплатой' : 'Бартер / доплата');
       if (coeffs.family >= 1 && criteria.familyRelevant) reasons.push('Семейный');
 
       score = Math.min(100, Math.max(0, Math.round(score)));

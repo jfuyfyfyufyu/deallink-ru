@@ -50,15 +50,14 @@ const BloggerSearchSheet = ({ trigger }: Props) => {
     if (!matchParams) return [];
 
     return scoreAndRankBloggers(bloggers, {
-      category: matchParams.category,
-      productPrice: Number(matchParams.price) || 0,
+      categories: matchParams.categories,
       targetGender: matchParams.targetGender,
       targetAgeRange: matchParams.targetAgeRange,
       targetGeo: matchParams.targetGeo,
       platforms: matchParams.platforms,
       minReach: Number(matchParams.minReach) || 0,
       reachMode: matchParams.reachMode,
-      cooperationType: matchParams.priceType,
+      cooperationTypes: matchParams.priceTypes,
       speed: matchParams.speed,
       familyRelevant: matchParams.familyRelevant,
       weights: matchParams.weights,
