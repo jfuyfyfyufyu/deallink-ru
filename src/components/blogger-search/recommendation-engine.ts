@@ -87,10 +87,13 @@ function geoCoeff(bloggerAudienceGeo: string | null, bloggerCity: string | null,
   if (bloggerAudienceGeo) {
     const ag = bloggerAudienceGeo.toLowerCase();
     if (ag === tg) return 1;
-    // "Россия, СНГ" includes "Россия", "Москва" etc.
-    if (ag.includes(tg) || tg.includes(ag)) return 0.8;
-    // Check comma-separated parts
+    // Check comma-separated parts for exact part match
     const agParts = ag.split(',').map(s => s.trim());
+    // "Россия, СНГ" with target "россия" → exact part match = 1.0
+    if (agParts.some(p => p === tg)) return 1;
+    // First part starts with target or vice versa → very strong match
+    if (agParts[0] === tg || agParts[0].startsWith(tg) || tg.startsWith(agParts[0])) return 0.95;
+    // Partial substring match anywhere
     if (agParts.some(p => p.includes(tg) || tg.includes(p))) return 0.7;
   }
   
