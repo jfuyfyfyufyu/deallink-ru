@@ -134,8 +134,9 @@ const BloggerDeals = () => {
 
   const submitContent = useMutation({
     mutationFn: async ({ dealId, url, sellerId, pName }: { dealId: string; url: string; sellerId: string; pName: string }) => {
-      const { error } = await supabase.from('deals').update({ content_url: url, content_status: 'submitted' }).eq('id', dealId);
+      const { data, error } = await supabase.from('deals').update({ content_url: url, content_status: 'submitted', updated_at: new Date().toISOString() }).eq('id', dealId).select('id').single();
       if (error) throw error;
+      if (!data) throw new Error('Не удалось обновить сделку');
       await supabase.from('deal_messages').insert({
         deal_id: dealId, sender_id: user!.id,
         message: `Контент на согласование: ${url}`, message_type: 'content_submission',
