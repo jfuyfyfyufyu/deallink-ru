@@ -46,16 +46,18 @@ export interface ScoredBlogger extends EnrichedBlogger {
 
 const RELATED_CATEGORIES: Record<string, string[]> = {
   'Красота': ['Мода', 'Здоровье', 'Лайфстайл'],
-  'Еда': ['Здоровье', 'Лайфстайл', 'Дом и уют'],
-  'Фитнес': ['Здоровье', 'Лайфстайл', 'Красота'],
+  'Еда': ['Здоровье', 'Лайфстайл', 'Дом и уют', 'Дом'],
+  'Фитнес': ['Здоровье', 'Лайфстайл', 'Красота', 'Спорт'],
+  'Спорт': ['Фитнес', 'Здоровье', 'Лайфстайл'],
   'Мода': ['Красота', 'Аксессуары', 'Лайфстайл'],
   'Технологии': ['Электроника', 'Лайфстайл'],
   'Путешествия': ['Лайфстайл', 'Мода'],
-  'Лайфстайл': ['Красота', 'Мода', 'Путешествия', 'Еда', 'Дом и уют'],
-  'Дом и уют': ['Лайфстайл', 'Дети', 'Еда'],
-  'Дети': ['Дом и уют', 'Лайфстайл', 'Здоровье'],
+  'Лайфстайл': ['Красота', 'Мода', 'Путешествия', 'Еда', 'Дом и уют', 'Дом'],
+  'Дом и уют': ['Лайфстайл', 'Дети', 'Еда', 'Дом'],
+  'Дом': ['Дом и уют', 'Лайфстайл', 'Дети'],
+  'Дети': ['Дом и уют', 'Дом', 'Лайфстайл', 'Здоровье'],
   'Авто': ['Технологии', 'Лайфстайл'],
-  'Здоровье': ['Фитнес', 'Красота', 'Еда'],
+  'Здоровье': ['Фитнес', 'Спорт', 'Красота', 'Еда'],
   'Аксессуары': ['Мода', 'Красота'],
   'Электроника': ['Технологии', 'Лайфстайл'],
   'Финансы': ['Лайфстайл', 'Технологии'],
@@ -75,14 +77,29 @@ function categoryCoeff(bloggerNiche: string | null, sellerCategory: string): num
   return 0;
 }
 
-function geoCoeff(bloggerGeo: string | null, targetGeo: string | null): number {
+function geoCoeff(bloggerAudienceGeo: string | null, bloggerCity: string | null, targetGeo: string | null): number {
   if (!targetGeo) return 1; // no preference = everyone matches
-  if (!bloggerGeo) return 0.5;
-  const bg = bloggerGeo.toLowerCase();
-  const tg = targetGeo.toLowerCase();
-  if (bg === tg) return 1;
-  if (bg.includes(tg) || tg.includes(bg)) return 0.5;
-  return 0;
+  const tg = targetGeo.toLowerCase().trim();
+  
+  // Check audience_geo first (primary match — where the audience is)
+  if (bloggerAudienceGeo) {
+    const ag = bloggerAudienceGeo.toLowerCase();
+    if (ag === tg) return 1;
+    // "Россия, СНГ" includes "Россия", "Москва" etc.
+    if (ag.includes(tg) || tg.includes(ag)) return 0.8;
+    // Check comma-separated parts
+    const agParts = ag.split(',').map(s => s.trim());
+    if (agParts.some(p => p.includes(tg) || tg.includes(p))) return 0.7;
+  }
+  
+  // Fallback: check blogger's personal city/country
+  if (bloggerCity) {
+    const bc = bloggerCity.toLowerCase().trim();
+    if (bc === tg || bc.includes(tg) || tg.includes(bc)) return 0.5;
+  }
+  
+  if (!bloggerAudienceGeo && !bloggerCity) return 0.4;
+  return 0.1;
 }
 
 function audienceGenderCoeff(
@@ -231,7 +248,7 @@ export function scoreAndRankBloggers(
     .map(blogger => {
       const coeffs: Record<string, number> = {
         category: categoryCoeff(blogger.niche, criteria.category),
-        geo: geoCoeff(blogger.questionnaire?.city || blogger.questionnaire?.country || null, criteria.targetGeo),
+        geo: geoCoeff(blogger.questionnaire?.audience_geo || null, blogger.questionnaire?.city || blogger.questionnaire?.country || null, criteria.targetGeo),
         audience: (
           audienceGenderCoeff(blogger.questionnaire?.audience_gender_male ?? 50, criteria.targetGender) +
           audienceAgeCoeff(blogger.questionnaire?.audience_age || null, criteria.targetAgeRange)

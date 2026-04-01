@@ -76,7 +76,8 @@ function computeStats(
   // Risk score from questionnaire or computed
   let riskScore: number;
   if (questionnaire?.reliability_index) {
-    riskScore = Math.round(questionnaire.reliability_index);
+    // reliability_index is 0-1, convert to 1-5 star scale
+    riskScore = Math.max(1, Math.round(questionnaire.reliability_index * 5));
   } else {
     riskScore = hasFails ? 1 : hasDelays ? 2 : completionRate >= 80 ? 5 : completionRate >= 60 ? 4 : 3;
   }

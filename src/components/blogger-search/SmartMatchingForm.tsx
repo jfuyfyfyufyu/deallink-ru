@@ -10,8 +10,8 @@ import { getAutoWeights, DEFAULT_WEIGHTS, type PriorityWeights } from './recomme
 import type { MatchingParams, SearchGoal, SocialPlatform, SpeedFilter, PriceType } from './types';
 
 const CATEGORIES = [
-  'Красота', 'Еда', 'Фитнес', 'Мода', 'Технологии',
-  'Путешествия', 'Лайфстайл', 'Дом и уют', 'Дети', 'Авто',
+  'Красота', 'Еда', 'Фитнес', 'Спорт', 'Мода', 'Технологии',
+  'Путешествия', 'Лайфстайл', 'Дом и уют', 'Дом', 'Дети', 'Авто',
   'Здоровье', 'Аксессуары', 'Электроника', 'Финансы',
 ];
 
