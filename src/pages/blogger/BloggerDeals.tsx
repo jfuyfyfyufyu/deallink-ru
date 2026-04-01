@@ -105,13 +105,21 @@ const BloggerDeals = () => {
     enabled: !!user,
   });
 
+  const invalidateDeals = () => Promise.all([
+    qc.invalidateQueries({ queryKey: ['blogger-deals'] }),
+    qc.invalidateQueries({ queryKey: ['seller-deals'] }),
+    qc.invalidateQueries({ queryKey: ['seller-applications'] }),
+  ]);
+
   const updateDeal = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Record<string, any> }) => {
-      const { error } = await supabase.from('deals').update(updates).eq('id', id);
+      const { data, error } = await supabase.from('deals').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id).select('id').single();
       if (error) throw error;
+      if (!data) throw new Error('Не удалось обновить сделку');
+      return data;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['blogger-deals'] });
+      invalidateDeals();
       setActiveDeal(null);
       toast({ title: 'Обновлено!' });
     },
@@ -142,7 +150,7 @@ const BloggerDeals = () => {
         ]]);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['blogger-deals'] });
+      invalidateDeals();
       setActiveDeal(null);
       toast({ title: 'Контент отправлен!' });
     },
@@ -167,7 +175,7 @@ const BloggerDeals = () => {
         ]]);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['blogger-deals'] });
+      invalidateDeals();
       setActiveDeal(null);
       toast({ title: 'Отзыв отправлен!' });
     },
@@ -391,18 +399,23 @@ const BloggerDeals = () => {
                   <>
                     <Button className="w-full" onClick={async () => {
                       const productName = detailDeal.products?.name || 'товар';
-                      await supabase.from('deal_messages').insert({
-                        deal_id: detailDeal.id, sender_id: user!.id,
-                        message: 'Блогер принял задание', message_type: 'system',
-                      });
-                      updateDeal.mutate({
-                        id: detailDeal.id,
-                        updates: { status: detailDeal.status === 'requested' ? 'approved' : detailDeal.status },
-                      });
-                      supabase.functions.invoke('telegram-notify', {
-                        body: { user_id: detailDeal.seller_id, title: 'Задание принято', message: `Блогер ${user?.user_metadata?.name || ''} принял задание по товару «${productName}»` },
-                      }).catch(() => {});
-                      setDetailDeal(null);
+                      try {
+                        await supabase.from('deal_messages').insert({
+                          deal_id: detailDeal.id, sender_id: user!.id,
+                          message: 'Блогер принял задание', message_type: 'system',
+                        });
+                        const newStatus = detailDeal.status === 'requested' ? 'approved' : detailDeal.status;
+                        const { error } = await supabase.from('deals').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', detailDeal.id).select('id').single();
+                        if (error) throw error;
+                        supabase.functions.invoke('telegram-notify', {
+                          body: { user_id: detailDeal.seller_id, title: 'Задание принято', message: `Блогер ${user?.user_metadata?.name || ''} принял задание по товару «${productName}»` },
+                        }).catch(() => {});
+                        setDetailDeal(null);
+                        invalidateDeals();
+                        toast({ title: 'Задание принято!' });
+                      } catch (e: any) {
+                        toast({ title: 'Ошибка', description: e.message, variant: 'destructive' });
+                      }
                     }}>Принять задание</Button>
                     <Button variant="outline" className="w-full" onClick={() => {
                       setCounterMode(true);
@@ -413,15 +426,22 @@ const BloggerDeals = () => {
                     </Button>
                     <Button variant="destructive" className="w-full" onClick={async () => {
                       const productName = detailDeal.products?.name || 'товар';
-                      await supabase.from('deal_messages').insert({
-                        deal_id: detailDeal.id, sender_id: user!.id,
-                        message: 'Блогер отказался от задания', message_type: 'system',
-                      });
-                      updateDeal.mutate({ id: detailDeal.id, updates: { status: 'cancelled' } });
-                      supabase.functions.invoke('telegram-notify', {
-                        body: { user_id: detailDeal.seller_id, title: 'Задание отклонено', message: `Блогер ${user?.user_metadata?.name || ''} отказался от задания на товар «${productName}»` },
-                      }).catch(() => {});
-                      setDetailDeal(null);
+                      try {
+                        await supabase.from('deal_messages').insert({
+                          deal_id: detailDeal.id, sender_id: user!.id,
+                          message: 'Блогер отказался от задания', message_type: 'system',
+                        });
+                        const { error } = await supabase.from('deals').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', detailDeal.id).select('id').single();
+                        if (error) throw error;
+                        supabase.functions.invoke('telegram-notify', {
+                          body: { user_id: detailDeal.seller_id, title: 'Задание отклонено', message: `Блогер ${user?.user_metadata?.name || ''} отказался от задания на товар «${productName}»` },
+                        }).catch(() => {});
+                        setDetailDeal(null);
+                        invalidateDeals();
+                        toast({ title: 'Задание отклонено' });
+                      } catch (e: any) {
+                        toast({ title: 'Ошибка', description: e.message, variant: 'destructive' });
+                      }
                     }}>Отказаться от задания</Button>
                   </>
                 )}
@@ -433,25 +453,29 @@ const BloggerDeals = () => {
                       const msg = counterDeadline
                         ? `Контрпредложение:\n${counterText}\n\nПредложенный дедлайн: ${format(counterDeadline, 'dd.MM.yyyy')}`
                         : `Контрпредложение:\n${counterText}`;
-                      await supabase.from('deal_messages').insert({
-                        deal_id: detailDeal.id, sender_id: user!.id,
-                        message: msg, message_type: 'counter_proposal',
-                      });
-                      // Change status to counter_proposed so blogger sees "Ожидаем подтверждения правок"
-                      await supabase.from('deals').update({ status: 'counter_proposed' }).eq('id', detailDeal.id);
-                      await supabase.from('notifications').insert({
-                        user_id: detailDeal.seller_id,
-                        title: 'Блогер предложил правки',
-                        message: `Блогер предложил правки по товару «${productName}»`,
-                        deal_id: detailDeal.id,
-                      });
-                      supabase.functions.invoke('telegram-notify', {
-                        body: { user_id: detailDeal.seller_id, title: 'Блогер предложил правки', message: `Блогер предложил правки по товару «${productName}»` },
-                      }).catch(() => {});
-                      toast({ title: 'Правки отправлены селлеру!' });
-                      setCounterMode(false);
-                      setDetailDeal(null);
-                      qc.invalidateQueries({ queryKey: ['blogger-deals'] });
+                      try {
+                        await supabase.from('deal_messages').insert({
+                          deal_id: detailDeal.id, sender_id: user!.id,
+                          message: msg, message_type: 'counter_proposal',
+                        });
+                        const { error } = await supabase.from('deals').update({ status: 'counter_proposed', updated_at: new Date().toISOString() }).eq('id', detailDeal.id).select('id').single();
+                        if (error) throw error;
+                        await supabase.from('notifications').insert({
+                          user_id: detailDeal.seller_id,
+                          title: 'Блогер предложил правки',
+                          message: `Блогер предложил правки по товару «${productName}»`,
+                          deal_id: detailDeal.id,
+                        });
+                        supabase.functions.invoke('telegram-notify', {
+                          body: { user_id: detailDeal.seller_id, title: 'Блогер предложил правки', message: `Блогер предложил правки по товару «${productName}»` },
+                        }).catch(() => {});
+                        toast({ title: 'Правки отправлены селлеру!' });
+                        setCounterMode(false);
+                        setDetailDeal(null);
+                        invalidateDeals();
+                      } catch (e: any) {
+                        toast({ title: 'Ошибка', description: e.message, variant: 'destructive' });
+                      }
                     }}>
                       Сохранить правки
                     </Button>
