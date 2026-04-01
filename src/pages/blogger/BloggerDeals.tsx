@@ -453,25 +453,29 @@ const BloggerDeals = () => {
                       const msg = counterDeadline
                         ? `Контрпредложение:\n${counterText}\n\nПредложенный дедлайн: ${format(counterDeadline, 'dd.MM.yyyy')}`
                         : `Контрпредложение:\n${counterText}`;
-                      await supabase.from('deal_messages').insert({
-                        deal_id: detailDeal.id, sender_id: user!.id,
-                        message: msg, message_type: 'counter_proposal',
-                      });
-                      // Change status to counter_proposed so blogger sees "Ожидаем подтверждения правок"
-                      await supabase.from('deals').update({ status: 'counter_proposed' }).eq('id', detailDeal.id);
-                      await supabase.from('notifications').insert({
-                        user_id: detailDeal.seller_id,
-                        title: 'Блогер предложил правки',
-                        message: `Блогер предложил правки по товару «${productName}»`,
-                        deal_id: detailDeal.id,
-                      });
-                      supabase.functions.invoke('telegram-notify', {
-                        body: { user_id: detailDeal.seller_id, title: 'Блогер предложил правки', message: `Блогер предложил правки по товару «${productName}»` },
-                      }).catch(() => {});
-                      toast({ title: 'Правки отправлены селлеру!' });
-                      setCounterMode(false);
-                      setDetailDeal(null);
-                      qc.invalidateQueries({ queryKey: ['blogger-deals'] });
+                      try {
+                        await supabase.from('deal_messages').insert({
+                          deal_id: detailDeal.id, sender_id: user!.id,
+                          message: msg, message_type: 'counter_proposal',
+                        });
+                        const { error } = await supabase.from('deals').update({ status: 'counter_proposed', updated_at: new Date().toISOString() }).eq('id', detailDeal.id).select('id').single();
+                        if (error) throw error;
+                        await supabase.from('notifications').insert({
+                          user_id: detailDeal.seller_id,
+                          title: 'Блогер предложил правки',
+                          message: `Блогер предложил правки по товару «${productName}»`,
+                          deal_id: detailDeal.id,
+                        });
+                        supabase.functions.invoke('telegram-notify', {
+                          body: { user_id: detailDeal.seller_id, title: 'Блогер предложил правки', message: `Блогер предложил правки по товару «${productName}»` },
+                        }).catch(() => {});
+                        toast({ title: 'Правки отправлены селлеру!' });
+                        setCounterMode(false);
+                        setDetailDeal(null);
+                        invalidateDeals();
+                      } catch (e: any) {
+                        toast({ title: 'Ошибка', description: e.message, variant: 'destructive' });
+                      }
                     }}>
                       Сохранить правки
                     </Button>
