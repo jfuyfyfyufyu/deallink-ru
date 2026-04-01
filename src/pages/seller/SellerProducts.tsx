@@ -13,6 +13,7 @@ import { Plus, Package, ExternalLink, Pencil, Trash2, ToggleLeft, ToggleRight, U
 import BloggerSearchSheet from '@/components/blogger-search/BloggerSearchSheet';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { compressImage } from '@/lib/image-compress';
 
 const emptyForm = { name: '', marketplace_url: '', description: '', requirements: '', target_audience: '', min_views: 0, image_url: '', deadline_days: 0 };
 
