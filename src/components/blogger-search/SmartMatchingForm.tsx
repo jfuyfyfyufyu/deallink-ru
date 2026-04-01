@@ -287,7 +287,7 @@ const SmartMatchingForm = ({ onSubmit }: Props) => {
       </div>
 
       <Button className="w-full" size="lg" onClick={() => onSubmit({
-        productUrl, category, price, goals, platforms, minReach, reachMode, speed, minRiskScore, priceType,
+        productUrl, categories, goals, platforms, minReach, reachMode, speed, minRiskScore, priceTypes,
         targetGender, targetAgeRange, targetGeo: targetGeo || null, familyRelevant, weights,
       })}>
         Показать блогеров
