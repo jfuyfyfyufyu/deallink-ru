@@ -5,33 +5,30 @@ const AnimatedBackground = forwardRef<HTMLDivElement>((_, ref) => {
 
   useEffect(() => {
     // Defer heavy animated blobs until after first paint (mobile-safe)
-    let timer: number | null = null;
+    if (typeof window === 'undefined') return;
 
-    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      const idleId = (window as Window & { requestIdleCallback: (cb: () => void) => number }).requestIdleCallback(
-        () => setVisible(true),
-      );
+    const win = window as Window & {
+      requestIdleCallback?: (callback: () => void) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
 
+    if (typeof win.requestIdleCallback === 'function') {
+      const idleId = win.requestIdleCallback(() => setVisible(true));
       return () => {
-        if ('cancelIdleCallback' in window) {
-          (window as Window & { cancelIdleCallback: (id: number) => void }).cancelIdleCallback(idleId);
+        if (typeof win.cancelIdleCallback === 'function') {
+          win.cancelIdleCallback(idleId);
         }
       };
     }
 
-    timer = window.setTimeout(() => setVisible(true), 200);
-
-    return () => {
-      if (timer !== null) {
-        window.clearTimeout(timer);
-      }
-    };
+    const timer = win.setTimeout(() => setVisible(true), 200);
+    return () => win.clearTimeout(timer);
   }, []);
 
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
+    <div className="absolute inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
       <div
         className="absolute w-[500px] h-[500px] rounded-full opacity-[0.04]"
         style={{
