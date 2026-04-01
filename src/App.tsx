@@ -5,13 +5,16 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import AppErrorBoundary from "@/components/AppErrorBoundary";
 import { lazy, Suspense } from "react";
 import { PageSkeleton } from "@/components/ui/skeletons";
 
 // Eager: landing & auth (small, always needed)
 import Index from "./pages/Index";
-import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
+
+// Lazy: auth page
+const AuthPage = lazy(() => import("./pages/AuthPage"));
 
 // Lazy: heavy dashboard pages
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
