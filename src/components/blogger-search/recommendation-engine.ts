@@ -213,7 +213,6 @@ function passesHardFilter(blogger: EnrichedBlogger, criteria: SellerCriteria): b
       blogger.questionnaire!.excluded_categories.some(ec => ec.toLowerCase() === cat.toLowerCase())
     );
     if (allExcluded) return false;
-    }
   }
 
   return true;
