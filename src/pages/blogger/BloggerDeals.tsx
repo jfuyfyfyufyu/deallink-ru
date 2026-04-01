@@ -137,8 +137,8 @@ const BloggerDeals = () => {
       notifyTg(sellerId, '🎬 Контент на согласование',
         `Блогер ${bloggerName} отправил контент по товару «${pName}». Ждёт вашего согласования.`,
         [[
-          { text: '✅ Согласовать', callback_data: `approve_content_${dealId}` },
-          { text: '✏️ Правки', callback_data: `reject_content_${dealId}` },
+          { text: '✅ Согласовать', url: `${window.location.origin}/seller/deals` },
+          { text: '✏️ Правки', url: `${window.location.origin}/seller/deals` },
         ]]);
     },
     onSuccess: () => {
@@ -162,8 +162,8 @@ const BloggerDeals = () => {
       notifyTg(sellerId, '📝 Отзыв на согласование',
         `Блогер ${bloggerName} отправил отзыв по товару «${pName}». Ждёт вашего согласования.`,
         [[
-          { text: '✅ Согласовать', callback_data: `approve_review_${dealId}` },
-          { text: '✏️ Правки', callback_data: `reject_review_${dealId}` },
+          { text: '✅ Согласовать', url: `${window.location.origin}/seller/deals` },
+          { text: '✏️ Правки', url: `${window.location.origin}/seller/deals` },
         ]]);
     },
     onSuccess: () => {
@@ -234,7 +234,8 @@ const BloggerDeals = () => {
         if (confirm('Вы уверены, что хотите отменить сделку?')) {
           updateDeal.mutate({ id: deal.id, updates: { status: 'cancelled' } });
           const bloggerName = user?.user_metadata?.name || 'Блогер';
-          notifyTg(deal.seller_id, '❌ Сделка отменена блогером', `Блогер ${bloggerName} отменил сделку по товару «${deal.products?.name || 'товар'}»`);
+          notifyTg(deal.seller_id, '❌ Сделка отменена блогером', `Блогер ${bloggerName} отменил сделку по товару «${deal.products?.name || 'товар'}»`,
+            [[{ text: '📋 Открыть сделки', url: `${window.location.origin}/seller/deals` }]]);
         }
         break;
       case 'archive': archiveDeal.mutate(deal.id); break;
@@ -500,7 +501,8 @@ const BloggerDeals = () => {
                     qc.invalidateQueries({ queryKey: ['blogger-deals'] });
                     setActiveDeal(null);
                     toast({ title: 'Обновлено!' });
-                    notifyTg(activeDeal.seller_id, '📦 Заказ оформлен', `Блогер ${bloggerName} оформил заказ по товару «${pName}»`);
+                    notifyTg(activeDeal.seller_id, '📦 Заказ оформлен', `Блогер ${bloggerName} оформил заказ по товару «${pName}»`,
+                      [[{ text: '📋 Открыть сделки', url: `${window.location.origin}/seller/deals` }]]);
                   },
                 });
               }}>
@@ -530,7 +532,8 @@ const BloggerDeals = () => {
                     qc.invalidateQueries({ queryKey: ['blogger-deals'] });
                     setActiveDeal(null);
                     toast({ title: 'Обновлено!' });
-                    notifyTg(activeDeal.seller_id, '📬 Посылка забрана', `Блогер ${bloggerName} забрал заказ по товару «${pName}»`);
+                    notifyTg(activeDeal.seller_id, '📬 Посылка забрана', `Блогер ${bloggerName} забрал заказ по товару «${pName}»`,
+                      [[{ text: '📋 Открыть сделки', url: `${window.location.origin}/seller/deals` }]]);
                   },
                 });
               }}>
@@ -628,7 +631,8 @@ const BloggerDeals = () => {
                     qc.invalidateQueries({ queryKey: ['blogger-deals'] });
                     setActiveDeal(null);
                     toast({ title: 'Обновлено!' });
-                    notifyTg(activeDeal.seller_id, 'Контент опубликован', `Блогер ${bloggerName} опубликовал контент по товару «${pName}»`);
+                    notifyTg(activeDeal.seller_id, 'Контент опубликован', `Блогер ${bloggerName} опубликовал контент по товару «${pName}»`,
+                      [[{ text: '📋 Открыть сделки', url: `${window.location.origin}/seller/deals` }]]);
                   },
                 });
               }}>

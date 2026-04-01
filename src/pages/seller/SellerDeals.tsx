@@ -151,6 +151,7 @@ const SellerDeals = () => {
             user_id: deal.blogger_id,
             title,
             message: `Товар: «${deal.products?.name || ''}»`,
+            inline_keyboard: [[{ text: '📋 Открыть сделки', url: `${window.location.origin}/blogger/deals` }]],
           },
         }).catch(() => {});
       }
@@ -204,6 +205,7 @@ const SellerDeals = () => {
           user_id: deal.blogger?.user_id,
           title: '📦 Новое предложение сотрудничества!',
           message: `Селлер предлагает вам новую сделку по товару «${deal.products?.name || ''}». Перейдите в раздел "Мои сделки" для просмотра.`,
+          inline_keyboard: [[{ text: '📋 Открыть сделки', url: `${window.location.origin}/blogger/deals` }]],
         },
       }).catch(() => {});
     } catch (e: any) {
@@ -329,7 +331,8 @@ const SellerDeals = () => {
                       message: 'Селлер принял правки блогера', message_type: 'system',
                     });
                     supabase.functions.invoke('telegram-notify', {
-                      body: { user_id: detailDeal.blogger_id, title: 'Правки приняты', message: `Селлер принял ваши правки по товару «${detailDeal.products?.name || ''}»` },
+                      body: { user_id: detailDeal.blogger_id, title: 'Правки приняты', message: `Селлер принял ваши правки по товару «${detailDeal.products?.name || ''}»`,
+                        inline_keyboard: [[{ text: '📋 Открыть сделки', url: `${window.location.origin}/blogger/deals` }]] },
                     }).catch(() => {});
                     toast({ title: 'Правки приняты!' });
                     setDetailDeal(null);

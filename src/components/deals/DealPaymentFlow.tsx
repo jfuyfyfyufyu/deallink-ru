@@ -148,8 +148,8 @@ const DealPaymentFlow = ({ deal, isSeller, userId }: Props) => {
         notify(deal.blogger_id, '💸 Аванс оплачен',
           `Селлер ${sellerName} оплатил аванс по товару «${productName}». Проверьте получение.`,
           [[
-            { text: '✅ Получил', callback_data: `confirm_payment_${deal.id}` },
-            { text: '❌ Не получил', callback_data: `deny_payment_${deal.id}` },
+            { text: '✅ Получил', url: `${window.location.origin}/blogger/deals` },
+            { text: '❌ Не получил', url: `${window.location.origin}/blogger/deals` },
           ]]);
       },
     });
@@ -162,7 +162,8 @@ const DealPaymentFlow = ({ deal, isSeller, userId }: Props) => {
         invalidate();
         toast({ title: 'Обновлено!' });
         notify(deal.seller_id, '✅ Оплата подтверждена',
-          `Блогер ${bloggerName} подтвердил получение оплаты по товару «${productName}»`);
+          `Блогер ${bloggerName} подтвердил получение оплаты по товару «${productName}»`,
+          [[{ text: '📋 Открыть сделки', url: `${window.location.origin}/seller/deals` }]]);
       },
     });
   };
@@ -174,7 +175,8 @@ const DealPaymentFlow = ({ deal, isSeller, userId }: Props) => {
         invalidate();
         toast({ title: 'Обновлено!' });
         notify(deal.seller_id, '❌ Проблема с оплатой',
-          `Блогер ${bloggerName} сообщил о проблеме с получением оплаты по товару «${productName}»`);
+          `Блогер ${bloggerName} сообщил о проблеме с получением оплаты по товару «${productName}»`,
+          [[{ text: '📋 Открыть сделки', url: `${window.location.origin}/seller/deals` }]]);
       },
     });
   };

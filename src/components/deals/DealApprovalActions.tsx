@@ -52,7 +52,8 @@ const DealApprovalActions = ({ dealId, senderId, type, bloggerId, sellerId, prod
       // Notify blogger
       if (bloggerId && productName) {
         notify(bloggerId, `✅ ${labelCap} одобрен`,
-          `Селлер одобрил ${label} по товару «${productName}»`);
+          `Селлер одобрил ${label} по товару «${productName}»`,
+          [[{ text: '📋 Открыть сделки', url: `${window.location.origin}/blogger/deals` }]]);
       }
       onDone?.();
     },
@@ -78,7 +79,8 @@ const DealApprovalActions = ({ dealId, senderId, type, bloggerId, sellerId, prod
       // Notify blogger
       if (bloggerId && productName) {
         notify(bloggerId, `❌ ${labelCap} отклонён`,
-          `Селлер отклонил ${label} по товару «${productName}».\n\nПричина: ${reason || 'Без комментария'}`);
+          `Селлер отклонил ${label} по товару «${productName}».\n\nПричина: ${reason || 'Без комментария'}`,
+          [[{ text: '📋 Открыть сделки', url: `${window.location.origin}/blogger/deals` }]]);
       }
       setRejectOpen(false);
       setReason('');
