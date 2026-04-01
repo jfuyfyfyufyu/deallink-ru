@@ -184,10 +184,10 @@ const SellerDeals = () => {
 
   const submitReview = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('reviews').upsert({
+      const { error } = await supabase.from('reviews').insert({
         deal_id: reviewDeal.id, reviewer_id: user!.id,
         target_id: reviewDeal.blogger?.user_id, rating, comment: comment || null,
-      }, { onConflict: 'deal_id,reviewer_id' });
+      });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -195,6 +195,7 @@ const SellerDeals = () => {
       setReviewDeal(null); setComment(''); setRating(5);
       toast({ title: 'Отзыв оставлен!' });
     },
+    onError: (e: any) => toast({ title: 'Ошибка', description: e.message, variant: 'destructive' }),
   });
 
   const handleWorkAgain = async (deal: any) => {

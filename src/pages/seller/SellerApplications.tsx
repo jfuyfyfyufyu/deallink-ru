@@ -52,15 +52,21 @@ const SellerApplications = () => {
     enabled: !!user,
   });
 
+  const invalidateAll = () => Promise.all([
+    queryClient.invalidateQueries({ queryKey: ['seller-applications'] }),
+    queryClient.invalidateQueries({ queryKey: ['seller-deals'] }),
+    queryClient.invalidateQueries({ queryKey: ['blogger-deals'] }),
+  ]);
+
   const updateDeal = useMutation({
     mutationFn: async ({ id, status, updates, bloggerId, productName }: { id: string; status: string; updates?: Record<string, any>; bloggerId?: string; productName?: string }) => {
-      const { error } = await supabase.from('deals').update({ status, ...updates }).eq('id', id);
+      const { data, error } = await supabase.from('deals').update({ status, ...updates, updated_at: new Date().toISOString() }).eq('id', id).select('id').single();
       if (error) throw error;
+      if (!data) throw new Error('Не удалось обновить сделку');
       return { bloggerId, productName, status };
     },
     onSuccess: (result, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['seller-applications'] });
-      queryClient.invalidateQueries({ queryKey: ['seller-deals'] });
+      invalidateAll();
       toast({ title: vars.status === 'approved' ? 'Заявка одобрена!' : 'Заявка отклонена' });
       if (vars.status === 'cancelled' && result?.bloggerId) {
         supabase.functions.invoke('telegram-notify', {
@@ -72,6 +78,7 @@ const SellerApplications = () => {
         }).catch(() => {});
       }
     },
+    onError: (e: any) => toast({ title: 'Ошибка', description: e.message, variant: 'destructive' }),
   });
 
   const openApproveDialog = (app: any) => {
