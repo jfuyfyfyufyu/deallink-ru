@@ -162,7 +162,8 @@ const DealPaymentFlow = ({ deal, isSeller, userId }: Props) => {
         invalidate();
         toast({ title: 'Обновлено!' });
         notify(deal.seller_id, '✅ Оплата подтверждена',
-          `Блогер ${bloggerName} подтвердил получение оплаты по товару «${productName}»`);
+          `Блогер ${bloggerName} подтвердил получение оплаты по товару «${productName}»`,
+          [[{ text: '📋 Открыть сделки', url: `${window.location.origin}/seller/deals` }]]);
       },
     });
   };
