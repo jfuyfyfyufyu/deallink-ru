@@ -45,12 +45,20 @@ const BloggerFeed = () => {
   const { data: products, isLoading } = useQuery({
     queryKey: ['blogger-feed'],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data: prods } = await supabase
         .from('products')
-        .select('*, seller:profiles!products_seller_id_fkey(name)')
+        .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
-      return data || [];
+      if (!prods || prods.length === 0) return [];
+      // Fetch seller names separately since there's no FK
+      const sellerIds = [...new Set(prods.map((p: any) => p.seller_id))];
+      const { data: sellers } = await supabase
+        .from('profiles')
+        .select('user_id, name')
+        .in('user_id', sellerIds);
+      const sellerMap = new Map((sellers || []).map((s: any) => [s.user_id, s.name]));
+      return prods.map((p: any) => ({ ...p, seller: { name: sellerMap.get(p.seller_id) || 'Селлер' } }));
     },
   });
 
