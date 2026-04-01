@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Star } from 'lucide-react';
+import { CardListSkeleton } from '@/components/ui/skeletons';
 
 const SellerReviews = () => {
   const { user } = useAuth();
