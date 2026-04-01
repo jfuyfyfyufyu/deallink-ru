@@ -78,6 +78,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let mounted = true;
     let initializing = true;
 
+    // Safety timeout: if session restore hangs (bad network), stop loading
+    const safetyTimer = setTimeout(() => {
+      if (mounted && loading) {
+        console.warn('Auth bootstrap timed out, proceeding without session');
+        initializing = false;
+        setLoading(false);
+      }
+    }, 6000);
+
     const applySession = async (session: Session | null) => {
       if (!mounted) return;
 
@@ -136,6 +145,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
   }, []);
