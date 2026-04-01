@@ -162,8 +162,8 @@ const BloggerDeals = () => {
       notifyTg(sellerId, '📝 Отзыв на согласование',
         `Блогер ${bloggerName} отправил отзыв по товару «${pName}». Ждёт вашего согласования.`,
         [[
-          { text: '✅ Согласовать', callback_data: `approve_review_${dealId}` },
-          { text: '✏️ Правки', callback_data: `reject_review_${dealId}` },
+          { text: '✅ Согласовать', url: `${window.location.origin}/seller/deals` },
+          { text: '✏️ Правки', url: `${window.location.origin}/seller/deals` },
         ]]);
     },
     onSuccess: () => {
