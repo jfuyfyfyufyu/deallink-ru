@@ -62,7 +62,7 @@ export type Database = {
           portfolio_photos: string[] | null
           portfolio_videos: string[] | null
           pricing_type: string | null
-          products_per_month: number | null
+          products_per_month: string | null
           purchasing_power: string | null
           ready_for_photo_review: boolean | null
           ready_for_reminders: boolean | null
@@ -72,6 +72,7 @@ export type Database = {
           ready_for_video_review: boolean | null
           ready_for_wb_review: boolean | null
           ready_to_buy: boolean | null
+          reliability_index: number | null
           review_type: string | null
           sample_review: string | null
           self_quality: number | null
@@ -133,7 +134,7 @@ export type Database = {
           portfolio_photos?: string[] | null
           portfolio_videos?: string[] | null
           pricing_type?: string | null
-          products_per_month?: number | null
+          products_per_month?: string | null
           purchasing_power?: string | null
           ready_for_photo_review?: boolean | null
           ready_for_reminders?: boolean | null
@@ -143,6 +144,7 @@ export type Database = {
           ready_for_video_review?: boolean | null
           ready_for_wb_review?: boolean | null
           ready_to_buy?: boolean | null
+          reliability_index?: number | null
           review_type?: string | null
           sample_review?: string | null
           self_quality?: number | null
@@ -204,7 +206,7 @@ export type Database = {
           portfolio_photos?: string[] | null
           portfolio_videos?: string[] | null
           pricing_type?: string | null
-          products_per_month?: number | null
+          products_per_month?: string | null
           purchasing_power?: string | null
           ready_for_photo_review?: boolean | null
           ready_for_reminders?: boolean | null
@@ -214,6 +216,7 @@ export type Database = {
           ready_for_video_review?: boolean | null
           ready_for_wb_review?: boolean | null
           ready_to_buy?: boolean | null
+          reliability_index?: number | null
           review_type?: string | null
           sample_review?: string | null
           self_quality?: number | null
@@ -297,6 +300,7 @@ export type Database = {
       deals: {
         Row: {
           blogger_id: string
+          click_count: number | null
           content_status: string | null
           content_url: string | null
           created_at: string
@@ -327,6 +331,7 @@ export type Database = {
         }
         Insert: {
           blogger_id: string
+          click_count?: number | null
           content_status?: string | null
           content_url?: string | null
           created_at?: string
@@ -357,6 +362,7 @@ export type Database = {
         }
         Update: {
           blogger_id?: string
+          click_count?: number | null
           content_status?: string | null
           content_url?: string | null
           created_at?: string
