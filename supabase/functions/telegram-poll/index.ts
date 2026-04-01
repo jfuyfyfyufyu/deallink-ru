@@ -8,9 +8,56 @@ const corsHeaders = {
 const GATEWAY_URL = 'https://connector-gateway.lovable.dev/telegram';
 const MAX_RUNTIME_MS = 55_000;
 const MIN_REMAINING_MS = 5_000;
+const CODE_TTL_MS = 10 * 60_000;
+const RESEND_COOLDOWN_MS = 30_000;
+
+type AuthRole = 'blogger' | 'seller';
 
 function generateCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function parseRoleFromStart(text: string): AuthRole | null {
+  const parts = text.split(/\s+/);
+  const rawRole = parts[1]?.toLowerCase();
+
+  if (rawRole === 'seller') return 'seller';
+  if (rawRole === 'blogger') return 'blogger';
+
+  return null;
+}
+
+async function resolveStartRole(supabase: any, chatId: number, text: string): Promise<AuthRole> {
+  const explicitRole = parseRoleFromStart(text);
+  if (explicitRole) {
+    return explicitRole;
+  }
+
+  const telegramId = String(chatId);
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('telegram_id', telegramId)
+    .maybeSingle();
+
+  if (profile?.role === 'seller' || profile?.role === 'blogger') {
+    return profile.role;
+  }
+
+  const { data: lastCode } = await supabase
+    .from('telegram_auth_codes')
+    .select('role')
+    .eq('telegram_chat_id', chatId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (lastCode?.role === 'seller' || lastCode?.role === 'blogger') {
+    return lastCode.role;
+  }
+
+  return 'blogger';
 }
 
 async function sendMessage(chatId: number, text: string, lovableKey: string, telegramKey: string, inline_keyboard?: any[]) {
@@ -102,6 +149,17 @@ Deno.serve(async (req) => {
 
     const data = await response.json();
     if (!response.ok) {
+      const description = typeof data?.description === 'string' ? data.description : '';
+      const isConcurrentPoll =
+        response.status === 409 ||
+        description.toLowerCase().includes('terminated by other getupdates request');
+
+      if (isConcurrentPoll) {
+        if (isQuick) break;
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        continue;
+      }
+
       return new Response(JSON.stringify({ error: data }), {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -151,8 +209,8 @@ Deno.serve(async (req) => {
 
       // Handle /start command
       if (text.startsWith('/start')) {
-        const parts = text.split(' ');
-        const role = (parts[1] === 'seller') ? 'seller' : 'blogger';
+        const role = await resolveStartRole(supabase, chatId, text);
+        const expirationBoundary = new Date(Date.now() - CODE_TTL_MS).toISOString();
 
         // Expire any old unused codes for this chat+role first
         await supabase
@@ -161,43 +219,85 @@ Deno.serve(async (req) => {
           .eq('telegram_chat_id', chatId)
           .eq('role', role)
           .eq('used', false)
-          .lt('created_at', new Date(Date.now() - 5 * 60_000).toISOString());
+          .lt('created_at', expirationBoundary);
 
-        // Try to insert a new code; unique partial index prevents duplicates
-        const code = generateCode();
-        const { error: insertErr } = await supabase
+        const { data: activeCode, error: activeCodeErr } = await supabase
           .from('telegram_auth_codes')
-          .insert({
-            telegram_chat_id: chatId,
-            telegram_username: username,
-            telegram_first_name: firstName,
-            code,
-            role,
-          });
+          .select('code, created_at')
+          .eq('telegram_chat_id', chatId)
+          .eq('role', role)
+          .eq('used', false)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-        let finalCode = code;
+        if (activeCodeErr) {
+          console.error('Failed to read active auth code:', activeCodeErr);
+          await sendMessage(chatId, '❌ Ошибка генерации кода. Попробуйте ещё раз.', LOVABLE_API_KEY, TELEGRAM_API_KEY);
+          totalProcessed++;
+          continue;
+        }
 
-        if (insertErr) {
-          // Conflict = active code already exists, reuse it
-          const isDuplicate = insertErr.code === '23505' || insertErr.message?.includes('duplicate');
-          if (isDuplicate) {
-            const { data: existing } = await supabase
-              .from('telegram_auth_codes')
-              .select('code')
-              .eq('telegram_chat_id', chatId)
-              .eq('role', role)
-              .eq('used', false)
-              .limit(1)
-              .maybeSingle();
-            if (existing) {
-              finalCode = existing.code;
-            }
-          } else {
-            console.error('Failed to insert auth code:', insertErr);
-            await sendMessage(chatId, '❌ Ошибка генерации кода. Попробуйте ещё раз.', LOVABLE_API_KEY, TELEGRAM_API_KEY);
-            totalProcessed++;
-            continue;
+        const now = Date.now();
+        let finalCode = activeCode?.code ?? '';
+        let shouldSendCode = true;
+
+        if (activeCode?.created_at) {
+          const activeCodeAge = now - new Date(activeCode.created_at).getTime();
+          if (activeCodeAge < RESEND_COOLDOWN_MS) {
+            shouldSendCode = false;
           }
+        }
+
+        // Try to insert a new code only when there is no active one
+        if (!activeCode) {
+          const code = generateCode();
+          const { error: insertErr } = await supabase
+            .from('telegram_auth_codes')
+            .insert({
+              telegram_chat_id: chatId,
+              telegram_username: username,
+              telegram_first_name: firstName,
+              code,
+              role,
+            });
+
+          finalCode = code;
+
+          if (insertErr) {
+            // Conflict = active code already exists, reuse it
+            const isDuplicate = insertErr.code === '23505' || insertErr.message?.includes('duplicate');
+            if (isDuplicate) {
+              const { data: existing } = await supabase
+                .from('telegram_auth_codes')
+                .select('code, created_at')
+                .eq('telegram_chat_id', chatId)
+                .eq('role', role)
+                .eq('used', false)
+                .limit(1)
+                .maybeSingle();
+
+              if (existing) {
+                finalCode = existing.code;
+                const codeAge = now - new Date(existing.created_at).getTime();
+                if (codeAge < RESEND_COOLDOWN_MS) {
+                  shouldSendCode = false;
+                }
+              } else {
+                shouldSendCode = false;
+              }
+            } else {
+              console.error('Failed to insert auth code:', insertErr);
+              await sendMessage(chatId, '❌ Ошибка генерации кода. Попробуйте ещё раз.', LOVABLE_API_KEY, TELEGRAM_API_KEY);
+              totalProcessed++;
+              continue;
+            }
+          }
+        }
+
+        if (!shouldSendCode || !finalCode) {
+          totalProcessed++;
+          continue;
         }
 
         const roleLabel = role === 'seller' ? 'Селлер' : 'Блогер';
