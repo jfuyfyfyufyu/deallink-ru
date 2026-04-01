@@ -92,6 +92,16 @@ const BloggerSearchSheet = ({ trigger }: Props) => {
     setSelectedIds(safe.slice(0, count).map(b => b.user_id));
   };
 
+  const notifyBloggerOffer = (bloggerId: string, productName: string) => {
+    supabase.functions.invoke('telegram-notify', {
+      body: {
+        user_id: bloggerId,
+        title: '📦 Новое предложение сотрудничества!',
+        message: `Селлер предлагает вам сделку по товару «${productName}». Перейдите в раздел "Мои сделки" для просмотра.`,
+      },
+    }).catch(() => {});
+  };
+
   const massLaunch = useMutation({
     mutationFn: async () => {
       if (!selectedProduct || selectedIds.length === 0) return;
@@ -106,6 +116,8 @@ const BloggerSearchSheet = ({ trigger }: Props) => {
       if (error) throw error;
     },
     onSuccess: () => {
+      const productName = myProducts?.find(p => p.id === selectedProduct)?.name || 'товар';
+      selectedIds.forEach((bloggerId) => notifyBloggerOffer(bloggerId, productName));
       toast({ title: `Создано ${selectedIds.length} сделок!` });
       setSelectedIds([]);
       setProposeBlogger(null);
@@ -128,6 +140,10 @@ const BloggerSearchSheet = ({ trigger }: Props) => {
       if (error) throw error;
     },
     onSuccess: () => {
+      const productName = myProducts?.find(p => p.id === selectedProduct)?.name || 'товар';
+      if (proposeBlogger) {
+        notifyBloggerOffer(proposeBlogger.user_id, productName);
+      }
       toast({ title: 'Сделка создана!' });
       setProposeBlogger(null);
       setSelectedProduct('');
