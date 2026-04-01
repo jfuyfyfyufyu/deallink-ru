@@ -123,10 +123,25 @@ Deno.serve(async (req) => {
         const parts = text.split(' ');
         const role = (parts[1] === 'seller') ? 'seller' : 'blogger';
 
-        // Generate auth code
+        // Check if an unused code already exists for this chat (created < 5 min ago)
+        const fiveMinAgo = new Date(Date.now() - 5 * 60_000).toISOString();
+        const { data: existing } = await supabase
+          .from('telegram_auth_codes')
+          .select('code')
+          .eq('telegram_chat_id', chatId)
+          .eq('used', false)
+          .gte('created_at', fiveMinAgo)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existing) {
+          // Already has a valid code — skip duplicate
+          continue;
+        }
+
         const code = generateCode();
 
-        // Save code to DB
         const { error: insertErr } = await supabase
           .from('telegram_auth_codes')
           .insert({
