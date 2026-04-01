@@ -265,7 +265,7 @@ export function scoreAndRankBloggers(
         reliability: reliabilityCoeff(blogger),
         speed: speedCoeff(blogger, criteria.speed),
         cooperation: cooperationCoeff(blogger, criteria.cooperationTypes),
-        family: familyCoeff(blogger, criteria.familyRelevant, criteria.categories[0] || ''),
+        family: familyCoeff(blogger, criteria.familyRelevant, criteria.categories),
       };
 
       // Weighted score
