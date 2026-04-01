@@ -8,21 +8,19 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
-  const { user, profile, loading } = useAuth();
+  const { user, role, authLoading } = useAuth();
 
-  if (loading) {
-    return <PageSkeleton />;
-  }
+  // Only block on auth loading — never on profile
+  if (authLoading) return <PageSkeleton />;
 
   if (!user) return <Navigate to="/auth" replace />;
 
-  // Profile still loading in background — show skeleton
-  if (!profile) return <PageSkeleton />;
+  // Use role from context (available before full profile loads)
+  const effectiveRole = role || 'blogger';
 
-  const role = profile.role || 'blogger';
-  if (!allowedRoles.includes(role)) {
-    if (role === 'admin') return <Navigate to="/admin" replace />;
-    if (role === 'seller') return <Navigate to="/seller" replace />;
+  if (!allowedRoles.includes(effectiveRole)) {
+    if (effectiveRole === 'admin') return <Navigate to="/admin" replace />;
+    if (effectiveRole === 'seller') return <Navigate to="/seller" replace />;
     return <Navigate to="/blogger" replace />;
   }
 

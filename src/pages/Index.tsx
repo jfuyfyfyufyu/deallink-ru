@@ -6,14 +6,15 @@ import { PageSkeleton } from '@/components/ui/skeletons';
 const LandingPage = lazy(() => import('./LandingPage'));
 
 const Index = () => {
-  const { user, profile, loading } = useAuth();
+  const { user, role, authLoading } = useAuth();
 
-  if (loading) return <PageSkeleton />;
+  if (authLoading) return <PageSkeleton />;
   if (!user) return <Suspense fallback={<PageSkeleton />}><LandingPage /></Suspense>;
 
-  const role = profile?.role || 'blogger';
-  if (role === 'admin') return <Navigate to="/admin" replace />;
-  if (role === 'seller') return <Navigate to="/seller" replace />;
+  // Route by role — no dependency on profile object
+  const effectiveRole = role || 'blogger';
+  if (effectiveRole === 'admin') return <Navigate to="/admin" replace />;
+  if (effectiveRole === 'seller') return <Navigate to="/seller" replace />;
   return <Navigate to="/blogger" replace />;
 };
 

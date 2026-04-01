@@ -36,11 +36,11 @@ const bloggerItems = [
 ];
 
 export function AppSidebar() {
-  const { profile, signOut } = useAuth();
+  const { profile, role: authRole, signOut } = useAuth();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
 
-  const role = profile?.role || 'blogger';
+  const role = authRole || profile?.role || 'blogger';
   const items = role === 'admin' ? adminItems : role === 'seller' ? sellerItems : bloggerItems;
   const roleLabel = role === 'admin' ? 'Админ-панель' : role === 'seller' ? 'Кабинет селлера' : 'Кабинет блогера';
 

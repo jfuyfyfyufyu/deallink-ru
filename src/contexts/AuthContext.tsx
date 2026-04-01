@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { Session, User } from '@supabase/supabase-js';
+import type { User } from '@supabase/supabase-js';
+import { withTimeout } from '@/lib/async-safe';
 
 type AppRole = 'admin' | 'blogger' | 'seller';
 
@@ -17,6 +18,10 @@ interface Profile {
 interface AuthContextType {
   user: User | null;
   profile: Profile | null;
+  role: AppRole | null;
+  authLoading: boolean;
+  profileLoading: boolean;
+  /** @deprecated use authLoading instead */
   loading: boolean;
   signOut: () => Promise<void>;
 }
@@ -24,6 +29,9 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
+  role: null,
+  authLoading: true,
+  profileLoading: false,
   loading: true,
   signOut: async () => {},
 });
@@ -33,77 +41,127 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState<AppRole | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
     try {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, user_id, name, telegram_id, avatar_url, role, trust_score')
-        .eq('user_id', userId)
-        .single();
-      if (data) setProfile(data as unknown as Profile);
+      const result = await withTimeout(
+        Promise.resolve(
+          supabase
+            .from('profiles')
+            .select('id, user_id, name, telegram_id, avatar_url, role, trust_score')
+            .eq('user_id', userId)
+            .single()
+        ),
+        6000
+      );
+      const { data, error } = result;
+      if (error) throw error;
+      return data as unknown as Profile;
     } catch (e) {
-      console.error('Failed to fetch profile', e);
+      console.warn('[AuthContext] fetchProfile failed:', e);
+      return null;
     }
-  };
+  }, []);
 
   useEffect(() => {
-    let mounted = true;
+    let alive = true;
+
+    // Safety timeout — guarantee we never hang forever
+    const safetyTimer = setTimeout(() => {
+      if (alive && authLoading) {
+        console.warn('[AuthContext] safety timeout — forcing authLoading=false');
+        setAuthLoading(false);
+      }
+    }, 8000);
 
     const bootstrap = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!mounted) return;
+        const { data: { session } } = await withTimeout(
+          supabase.auth.getSession(),
+          6000
+        );
+        if (!alive) return;
 
         const currentUser = session?.user ?? null;
         setUser(currentUser);
-        // Unblock rendering immediately
-        setLoading(false);
 
-        // Fetch profile in background (non-blocking)
+        // Extract role from metadata as fast path
+        const metaRole = (currentUser?.app_metadata?.role ?? currentUser?.user_metadata?.role) as AppRole | undefined;
+        if (metaRole) setRole(metaRole);
+
+        // Unblock routing immediately — profile loads in background
+        setAuthLoading(false);
+
         if (currentUser) {
-          fetchProfile(currentUser.id);
+          setProfileLoading(true);
+          const p = await fetchProfile(currentUser.id);
+          if (!alive) return;
+          setProfile(p);
+          if (p?.role) setRole(p.role);
+          else if (!metaRole) setRole('blogger'); // fallback
+          setProfileLoading(false);
         }
       } catch (e) {
-        console.error('Failed to restore session', e);
-        if (mounted) {
+        console.error('[AuthContext] bootstrap failed:', e);
+        if (alive) {
           setUser(null);
           setProfile(null);
-          setLoading(false);
+          setRole(null);
+          setAuthLoading(false);
         }
       }
     };
 
-    // Listen for auth changes after bootstrap
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!mounted) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!alive) return;
       const currentUser = session?.user ?? null;
       setUser(currentUser);
 
       if (currentUser) {
-        await fetchProfile(currentUser.id);
+        // Non-blocking profile refresh
+        setProfileLoading(true);
+        fetchProfile(currentUser.id).then(p => {
+          if (!alive) return;
+          setProfile(p);
+          if (p?.role) setRole(p.role);
+          setProfileLoading(false);
+        });
       } else {
         setProfile(null);
+        setRole(null);
+        setProfileLoading(false);
       }
     });
 
     bootstrap();
 
     return () => {
-      mounted = false;
+      alive = false;
+      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
-  };
+    setRole(null);
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signOut }}>
+    <AuthContext.Provider value={{
+      user,
+      profile,
+      role,
+      authLoading,
+      profileLoading,
+      loading: authLoading,
+      signOut,
+    }}>
       {children}
     </AuthContext.Provider>
   );
