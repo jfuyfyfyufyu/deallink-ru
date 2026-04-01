@@ -205,6 +205,7 @@ const SellerDeals = () => {
           user_id: deal.blogger?.user_id,
           title: '📦 Новое предложение сотрудничества!',
           message: `Селлер предлагает вам новую сделку по товару «${deal.products?.name || ''}». Перейдите в раздел "Мои сделки" для просмотра.`,
+          inline_keyboard: [[{ text: '📋 Открыть сделки', url: `${window.location.origin}/blogger/deals` }]],
         },
       }).catch(() => {});
     } catch (e: any) {
