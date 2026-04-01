@@ -154,33 +154,45 @@ Deno.serve(async (req) => {
         const parts = text.split(' ');
         const role = (parts[1] === 'seller') ? 'seller' : 'blogger';
 
-        // Reuse active code for this role (created < 5 min ago)
-        const fiveMinAgo = new Date(Date.now() - 5 * 60_000).toISOString();
-        const { data: existing } = await supabase
+        // Expire any old unused codes for this chat+role first
+        await supabase
           .from('telegram_auth_codes')
-          .select('code')
+          .update({ used: true })
           .eq('telegram_chat_id', chatId)
           .eq('role', role)
           .eq('used', false)
-          .gte('created_at', fiveMinAgo)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .lt('created_at', new Date(Date.now() - 5 * 60_000).toISOString());
 
-        const code = existing?.code ?? generateCode();
+        // Try to insert a new code; unique partial index prevents duplicates
+        const code = generateCode();
+        const { error: insertErr } = await supabase
+          .from('telegram_auth_codes')
+          .insert({
+            telegram_chat_id: chatId,
+            telegram_username: username,
+            telegram_first_name: firstName,
+            code,
+            role,
+          });
 
-        if (!existing) {
-          const { error: insertErr } = await supabase
-            .from('telegram_auth_codes')
-            .insert({
-              telegram_chat_id: chatId,
-              telegram_username: username,
-              telegram_first_name: firstName,
-              code,
-              role,
-            });
+        let finalCode = code;
 
-          if (insertErr) {
+        if (insertErr) {
+          // Conflict = active code already exists, reuse it
+          const isDuplicate = insertErr.code === '23505' || insertErr.message?.includes('duplicate');
+          if (isDuplicate) {
+            const { data: existing } = await supabase
+              .from('telegram_auth_codes')
+              .select('code')
+              .eq('telegram_chat_id', chatId)
+              .eq('role', role)
+              .eq('used', false)
+              .limit(1)
+              .maybeSingle();
+            if (existing) {
+              finalCode = existing.code;
+            }
+          } else {
             console.error('Failed to insert auth code:', insertErr);
             await sendMessage(chatId, '❌ Ошибка генерации кода. Попробуйте ещё раз.', LOVABLE_API_KEY, TELEGRAM_API_KEY);
             totalProcessed++;
@@ -192,7 +204,7 @@ Deno.serve(async (req) => {
         await sendMessage(
           chatId,
           `👋 Добро пожаловать в <b>DealLink</b>!\n\n` +
-          `Ваш код для входа: <code>${code}</code>\n\n` +
+          `Ваш код для входа: <code>${finalCode}</code>\n\n` +
           `Роль: <b>${roleLabel}</b>\n\n` +
           `Введите этот код на сайте для авторизации.`,
           LOVABLE_API_KEY,
