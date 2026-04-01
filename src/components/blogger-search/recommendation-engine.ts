@@ -66,13 +66,16 @@ const FAMILY_CATEGORIES = ['Дети', 'Дом и уют'];
 
 // ── Coefficient functions ──────────────────────────────────
 
-function categoryCoeff(bloggerNiche: string | null, sellerCategory: string): number {
-  if (!bloggerNiche || !sellerCategory) return 0.5;
-  const bn = bloggerNiche.trim();
-  const sc = sellerCategory.trim();
-  if (bn.toLowerCase() === sc.toLowerCase()) return 1;
-  const related = RELATED_CATEGORIES[sc] || [];
-  if (related.some(r => r.toLowerCase() === bn.toLowerCase())) return 0.6;
+function categoryCoeff(bloggerNiche: string | null, sellerCategories: string[]): number {
+  if (!bloggerNiche || sellerCategories.length === 0) return 0.5;
+  const bn = bloggerNiche.trim().toLowerCase();
+  // Direct match with any selected category
+  if (sellerCategories.some(sc => sc.trim().toLowerCase() === bn)) return 1;
+  // Related match
+  for (const sc of sellerCategories) {
+    const related = RELATED_CATEGORIES[sc.trim()] || [];
+    if (related.some(r => r.toLowerCase() === bn)) return 0.6;
+  }
   return 0;
 }
 
