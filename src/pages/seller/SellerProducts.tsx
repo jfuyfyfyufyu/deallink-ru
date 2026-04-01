@@ -156,7 +156,7 @@ const SellerProducts = () => {
                   <div><Label>Описание</Label><Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></div>
                   <div><Label>Требования</Label><Textarea value={form.requirements} onChange={e => setForm(f => ({ ...f, requirements: e.target.value }))} /></div>
                   <div><Label>Целевая аудитория</Label><Input value={form.target_audience} onChange={e => setForm(f => ({ ...f, target_audience: e.target.value }))} /></div>
-                  <div><Label>Мин. просмотры</Label><Input type="number" value={form.min_views} onChange={e => setForm(f => ({ ...f, min_views: Number(e.target.value) }))} /></div>
+                  <div><Label>Мин. просмотры</Label><Input type="number" min={0} placeholder="0" value={form.min_views || ''} onChange={e => setForm(f => ({ ...f, min_views: e.target.value === '' ? 0 : Number(e.target.value) }))} /></div>
                   <div><Label>Дедлайн выполнения (дней)</Label><Input type="number" min={0} placeholder="Например: 14" value={form.deadline_days || ''} onChange={e => setForm(f => ({ ...f, deadline_days: Number(e.target.value) }))} /><p className="text-xs text-muted-foreground mt-1">Сколько дней даётся блогеру на выполнение задания</p></div>
                   <Button className="w-full" onClick={() => saveMutation.mutate()} disabled={!form.name || saveMutation.isPending}>
                     {saveMutation.isPending ? 'Сохранение...' : editId ? 'Сохранить' : 'Создать'}
