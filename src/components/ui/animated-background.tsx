@@ -1,6 +1,20 @@
-import { forwardRef } from 'react';
+import { forwardRef, useState, useEffect } from 'react';
 
 const AnimatedBackground = forwardRef<HTMLDivElement>((_, ref) => {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    // Defer heavy animated blobs until after first paint
+    const id = requestIdleCallback?.(() => setVisible(true)) ?? setTimeout(() => setVisible(true), 200);
+    return () => {
+      if (typeof id === 'number') {
+        (cancelIdleCallback ?? clearTimeout)(id);
+      }
+    };
+  }, []);
+
+  if (!visible) return null;
+
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
       <div
@@ -10,7 +24,6 @@ const AnimatedBackground = forwardRef<HTMLDivElement>((_, ref) => {
           top: '10%',
           right: '10%',
           animation: 'float1 20s ease-in-out infinite',
-          willChange: 'transform',
         }}
       />
       <div
@@ -20,17 +33,6 @@ const AnimatedBackground = forwardRef<HTMLDivElement>((_, ref) => {
           bottom: '15%',
           left: '5%',
           animation: 'float2 25s ease-in-out infinite',
-          willChange: 'transform',
-        }}
-      />
-      <div
-        className="absolute w-[350px] h-[350px] rounded-full opacity-[0.025]"
-        style={{
-          background: 'radial-gradient(circle, hsl(82 80% 55%), transparent 70%)',
-          top: '50%',
-          left: '40%',
-          animation: 'float3 30s ease-in-out infinite',
-          willChange: 'transform',
         }}
       />
     </div>
