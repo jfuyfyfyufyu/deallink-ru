@@ -63,8 +63,10 @@ const LandingPage = () => {
   const goAuth = () => navigate('/auth');
 
   return (
-    <div className="min-h-[100dvh] bg-background text-foreground overflow-x-hidden relative" style={{ minHeight: '-webkit-fill-available' }}>
-      <AnimatedBackground />
+    <main className="relative isolate z-0 min-h-[100dvh] w-full overflow-x-hidden bg-background text-foreground" style={{ minHeight: '-webkit-fill-available' }}>
+      <div className="absolute inset-0 -z-10 pointer-events-none">
+        <AnimatedBackground />
+      </div>
 
       {/* Navbar */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/60 backdrop-blur-2xl border-b border-border/10">
@@ -340,7 +342,7 @@ const LandingPage = () => {
           <span>&copy; {new Date().getFullYear()} DealLink. Все права защищены.</span>
         </div>
       </footer>
-    </div>
+    </main>
   );
 };
 
