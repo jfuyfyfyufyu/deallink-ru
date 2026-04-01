@@ -40,16 +40,29 @@ const AdminBloggers = () => {
     },
   });
 
-  const { data: pendingQuestionnaires } = useQuery({
-    queryKey: ['admin-pending-questionnaires'],
+  const { data: questionnaires } = useQuery({
+    queryKey: ['admin-all-questionnaires'],
     queryFn: async () => {
       const { data } = await supabase
         .from('blogger_questionnaires')
         .select('*')
         .order('updated_at', { ascending: false });
-      return ((data || []) as any[]).filter((q: any) => q.moderation_status === 'pending');
+      return (data || []) as any[];
     },
   });
+
+  const pendingQuestionnaires = questionnaires?.filter((q: any) => q.moderation_status === 'pending') || [];
+
+  const openBloggerDetail = (q: any) => {
+    // Find matching profile or create a minimal one
+    const profile = bloggers?.find((b: any) => b.user_id === q.user_id);
+    if (profile) {
+      setSelectedUser(profile);
+    } else {
+      // Minimal profile object so the detail panel can open
+      setSelectedUser({ user_id: q.user_id, name: q.full_name || 'Без имени', role: 'blogger', trust_score: 0, is_blocked: false, created_at: q.created_at, deals: { total: 0, finished: 0 } });
+    }
+  };
 
   const moderateQuestionnaire = useMutation({
     mutationFn: async ({ userId, status, note }: { userId: string; status: string; note?: string }) => {
@@ -60,7 +73,7 @@ const AdminBloggers = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-pending-questionnaires'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-all-questionnaires'] });
       queryClient.invalidateQueries({ queryKey: ['admin-bloggers'] });
       toast({ title: 'Статус модерации обновлён' });
     },
@@ -113,7 +126,7 @@ const AdminBloggers = () => {
               <p className="text-muted-foreground text-center py-8">Нет анкет на модерации</p>
             )}
             {pendingQuestionnaires?.map((q: any) => (
-              <Card key={q.id} className="glass-card">
+              <Card key={q.id} className="glass-card cursor-pointer hover:ring-1 hover:ring-primary/20 transition-all" onClick={() => openBloggerDetail(q)}>
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
@@ -143,7 +156,7 @@ const AdminBloggers = () => {
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2" onClick={e => e.stopPropagation()}>
                     <Button
                       size="sm"
                       className="flex-1"
@@ -151,6 +164,20 @@ const AdminBloggers = () => {
                       disabled={moderateQuestionnaire.isPending}
                     >
                       <CheckCircle className="h-4 w-4 mr-1" /> Одобрить
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        const note = prompt('Что нужно исправить:');
+                        if (note !== null) {
+                          moderateQuestionnaire.mutate({ userId: q.user_id, status: 'revision', note });
+                        }
+                      }}
+                      disabled={moderateQuestionnaire.isPending}
+                    >
+                      ✏️ Доработать
                     </Button>
                     <Button
                       size="sm"
