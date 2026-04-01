@@ -150,7 +150,7 @@ const BloggerDeals = () => {
         ]]);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['blogger-deals'] });
+      invalidateDeals();
       setActiveDeal(null);
       toast({ title: 'Контент отправлен!' });
     },
