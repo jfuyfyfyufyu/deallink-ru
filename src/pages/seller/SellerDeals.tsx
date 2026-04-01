@@ -151,6 +151,7 @@ const SellerDeals = () => {
             user_id: deal.blogger_id,
             title,
             message: `Товар: «${deal.products?.name || ''}»`,
+            inline_keyboard: [[{ text: '📋 Открыть сделки', url: `${window.location.origin}/blogger/deals` }]],
           },
         }).catch(() => {});
       }
