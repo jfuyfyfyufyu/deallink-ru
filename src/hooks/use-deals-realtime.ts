@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -18,9 +18,23 @@ const statusLabels: Record<string, string> = {
 };
 
 export function useDealsRealtime() {
-  const { user, profile } = useAuth();
+  const { user, role } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingKeys = useRef(new Set<string>());
+
+  const debouncedInvalidate = useCallback((...keys: string[]) => {
+    keys.forEach(k => pendingKeys.current.add(k));
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const toInvalidate = [...pendingKeys.current];
+      pendingKeys.current.clear();
+      toInvalidate.forEach(key => {
+        queryClient.invalidateQueries({ queryKey: [key] });
+      });
+    }, 500);
+  }, [queryClient]);
 
   useEffect(() => {
     if (!user) return;
@@ -34,22 +48,17 @@ export function useDealsRealtime() {
           const deal = payload.new as any;
           const old = payload.old as any;
 
-          // Only notify if status actually changed
           if (deal.status === old.status) return;
 
-          // Notify if user is participant
           const isParticipant = deal.seller_id === user.id || deal.blogger_id === user.id;
-          if (!isParticipant) return;
+          if (!isParticipant && role !== 'admin') return;
 
           const label = statusLabels[deal.status] || deal.status;
-          // Don't show toast if the current user made the change
-          // We detect this: if I'm the blogger and the status is one bloggers typically set, skip
           const bloggerStatuses = ['ordered', 'in_pvz', 'picked_up', 'filming', 'counter_proposed'];
           const sellerStatuses = ['approved', 'finished', 'cancelled'];
           const iAmBlogger = deal.blogger_id === user.id;
           const iAmSeller = deal.seller_id === user.id;
-          
-          // If I'm blogger and the new status is typically set by blogger — it's my own action, skip
+
           if (iAmBlogger && bloggerStatuses.includes(deal.status)) return;
           if (iAmSeller && sellerStatuses.includes(deal.status)) return;
 
@@ -59,14 +68,14 @@ export function useDealsRealtime() {
             description: `${changedBy} обновил статус сделки`,
           });
 
-          // Invalidate relevant queries
-          queryClient.invalidateQueries({ queryKey: ['seller-deals'] });
-          queryClient.invalidateQueries({ queryKey: ['seller-applications'] });
-          queryClient.invalidateQueries({ queryKey: ['blogger-deals'] });
-          queryClient.invalidateQueries({ queryKey: ['seller-active-deals'] });
-          queryClient.invalidateQueries({ queryKey: ['seller-deals-count'] });
-          queryClient.invalidateQueries({ queryKey: ['admin-deals'] });
-          queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+          // Role-aware invalidation — only invalidate what the current user sees
+          if (role === 'admin') {
+            debouncedInvalidate('admin-deals', 'admin-stats');
+          } else if (role === 'seller') {
+            debouncedInvalidate('seller-deals', 'seller-applications', 'seller-active-deals', 'seller-deals-count');
+          } else {
+            debouncedInvalidate('blogger-deals');
+          }
         }
       )
       .on(
@@ -77,17 +86,21 @@ export function useDealsRealtime() {
           if (deal.seller_id === user.id) {
             toast({ title: '🆕 Новая заявка!', description: 'Блогер подал заявку на бартер' });
           }
-          queryClient.invalidateQueries({ queryKey: ['seller-applications'] });
-          queryClient.invalidateQueries({ queryKey: ['seller-deals-count'] });
-          queryClient.invalidateQueries({ queryKey: ['blogger-my-deals'] });
-          queryClient.invalidateQueries({ queryKey: ['admin-deals'] });
-          queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+
+          if (role === 'admin') {
+            debouncedInvalidate('admin-deals', 'admin-stats');
+          } else if (role === 'seller') {
+            debouncedInvalidate('seller-applications', 'seller-deals-count');
+          } else {
+            debouncedInvalidate('blogger-my-deals');
+          }
         }
       )
       .subscribe();
 
     return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
       supabase.removeChannel(channel);
     };
-  }, [user?.id]);
+  }, [user?.id, role]); // eslint-disable-line react-hooks/exhaustive-deps
 }
