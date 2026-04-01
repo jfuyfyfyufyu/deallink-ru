@@ -126,7 +126,7 @@ const AdminBloggers = () => {
               <p className="text-muted-foreground text-center py-8">Нет анкет на модерации</p>
             )}
             {pendingQuestionnaires?.map((q: any) => (
-              <Card key={q.id} className="glass-card">
+              <Card key={q.id} className="glass-card cursor-pointer hover:ring-1 hover:ring-primary/20 transition-all" onClick={() => openBloggerDetail(q)}>
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
@@ -156,7 +156,7 @@ const AdminBloggers = () => {
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2" onClick={e => e.stopPropagation()}>
                     <Button
                       size="sm"
                       className="flex-1"
@@ -164,6 +164,20 @@ const AdminBloggers = () => {
                       disabled={moderateQuestionnaire.isPending}
                     >
                       <CheckCircle className="h-4 w-4 mr-1" /> Одобрить
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        const note = prompt('Что нужно исправить:');
+                        if (note !== null) {
+                          moderateQuestionnaire.mutate({ userId: q.user_id, status: 'revision', note });
+                        }
+                      }}
+                      disabled={moderateQuestionnaire.isPending}
+                    >
+                      ✏️ Доработать
                     </Button>
                     <Button
                       size="sm"
