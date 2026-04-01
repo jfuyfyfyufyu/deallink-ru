@@ -306,7 +306,7 @@ export function scoreAndRankBloggers(
       }
 
       if (coeffs.geo >= 1 && criteria.targetGeo) reasons.push('Совпадает гео');
-      if (coeffs.cooperation >= 1 && criteria.cooperationType) reasons.push(criteria.cooperationType === 'barter' ? 'Бартер' : 'С доплатой');
+      if (coeffs.cooperation >= 1 && criteria.cooperationTypes.length > 0) reasons.push(criteria.cooperationTypes.includes('barter') && !criteria.cooperationTypes.includes('paid') ? 'Бартер' : criteria.cooperationTypes.includes('paid') && !criteria.cooperationTypes.includes('barter') ? 'С доплатой' : 'Бартер / доплата');
       if (coeffs.family >= 1 && criteria.familyRelevant) reasons.push('Семейный');
 
       score = Math.min(100, Math.max(0, Math.round(score)));
