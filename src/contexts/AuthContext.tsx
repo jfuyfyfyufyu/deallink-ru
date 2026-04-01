@@ -21,32 +21,6 @@ interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
-const getStoredRefreshToken = (): string | null => {
-  if (typeof window === 'undefined') return null;
-
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  if (!projectId) return null;
-
-  const storageKey = `sb-${projectId}-auth-token`;
-  const rawValue = window.localStorage.getItem(storageKey);
-  if (!rawValue) return null;
-
-  try {
-    const parsed = JSON.parse(rawValue) as
-      | { refresh_token?: string; currentSession?: { refresh_token?: string } }
-      | Array<{ refresh_token?: string; currentSession?: { refresh_token?: string } }>;
-
-    if (Array.isArray(parsed)) {
-      const firstEntry = parsed[0];
-      return firstEntry?.refresh_token ?? firstEntry?.currentSession?.refresh_token ?? null;
-    }
-
-    return parsed.refresh_token ?? parsed.currentSession?.refresh_token ?? null;
-  } catch {
-    return rawValue.includes('refresh_token') ? 'refresh_token_exists' : null;
-  }
-};
-
 const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
@@ -65,7 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { data } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, user_id, name, telegram_id, avatar_url, role, trust_score')
         .eq('user_id', userId)
         .single();
       if (data) setProfile(data as unknown as Profile);
@@ -76,20 +50,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let mounted = true;
-    let initializing = true;
 
-    // Safety timeout: if session restore hangs (bad network), stop loading
-    const safetyTimer = setTimeout(() => {
-      if (mounted && loading) {
-        console.warn('Auth bootstrap timed out, proceeding without session');
-        initializing = false;
+    const bootstrap = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!mounted) return;
+
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        // Unblock rendering immediately
         setLoading(false);
+
+        // Fetch profile in background (non-blocking)
+        if (currentUser) {
+          fetchProfile(currentUser.id);
+        }
+      } catch (e) {
+        console.error('Failed to restore session', e);
+        if (mounted) {
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+        }
       }
-    }, 4000);
+    };
 
-    const applySession = async (session: Session | null) => {
+    // Listen for auth changes after bootstrap
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!mounted) return;
-
       const currentUser = session?.user ?? null;
       setUser(currentUser);
 
@@ -98,52 +86,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         setProfile(null);
       }
-    };
-
-    // Listener stays active for sign-in/sign-out/token refresh after bootstrap
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!mounted || initializing) return;
-
-      let nextSession = session;
-
-      if (!nextSession && getStoredRefreshToken()) {
-        const { data: refreshedData } = await supabase.auth.refreshSession();
-        nextSession = refreshedData.session ?? null;
-      }
-
-      await applySession(nextSession);
     });
 
-    const bootstrapSession = async () => {
-      setLoading(true);
-
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        let nextSession = session;
-
-        if (!nextSession && getStoredRefreshToken()) {
-          const { data: refreshedData } = await supabase.auth.refreshSession();
-          nextSession = refreshedData.session ?? null;
-        }
-
-        await applySession(nextSession);
-      } catch (e) {
-        console.error('Failed to restore session', e);
-        setUser(null);
-        setProfile(null);
-      } finally {
-        if (mounted) {
-          initializing = false;
-          setLoading(false);
-        }
-      }
-    };
-
-    bootstrapSession();
+    bootstrap();
 
     return () => {
       mounted = false;
-      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
   }, []);
