@@ -1,1 +1,5 @@
 project_id = "dlwhgnatscazmwhlpzun"
+
+[auth]
+# 30-day session: JWT expires in 30 days (2592000 seconds)
+jwt_expiry = 2592000
