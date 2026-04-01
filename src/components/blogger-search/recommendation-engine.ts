@@ -14,15 +14,14 @@ export interface PriorityWeights {
 }
 
 export interface SellerCriteria {
-  category: string;
-  productPrice: number;
+  categories: string[];
   targetGender: 'male' | 'female' | 'unisex' | null;
   targetAgeRange: string | null;
   targetGeo: string | null;
   platforms: SocialPlatform[];
   minReach: number;
   reachMode: 'per_platform' | 'total';
-  cooperationType: PriceType | null;
+  cooperationTypes: PriceType[];
   speed: SpeedFilter | null;
   familyRelevant: boolean;
   weights: PriorityWeights;
