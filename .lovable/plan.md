@@ -1,117 +1,64 @@
 
 
-# Plan: Full Site Logic Audit & Fix
+## Plan: Fix Build Error + Maximize Page Load Speed
 
-## Summary
+### Problem Analysis
 
-After auditing all pages, components, edge functions, and comparing them against the database schema, I found **8 issues** that need fixing.
+1. **Build error**: Likely caused by the `LandingPage.tsx` edits — `CountUpValue` and `ScrollReveal` are function components receiving refs via `useRef` internally but the console warns about refs being passed to them. Need to check for TypeScript issues.
 
----
+2. **Slow page load after auth**: The `Index` page eagerly imports `LandingPage` (a 349-line component with animations), which means the entire landing page code is bundled with the main chunk even for authenticated users who never see it. The auth bootstrap also blocks rendering for up to 6 seconds.
 
-## Issues Found
+3. **Loading indicator**: Index still shows "Загрузка..." text instead of skeleton.
 
-### 1. CORS Import Broken in All Edge Functions (CRITICAL)
-All three edge functions (`telegram-auth`, `telegram-poll`, `telegram-notify`) import `corsHeaders` from `https://esm.sh/@supabase/supabase-js@2/cors` — this path does not exist. The functions may still work if the import silently fails and `corsHeaders` is `undefined`, but it causes unreliable behavior.
+### Changes
 
-**Fix**: Replace the broken import with inline CORS headers definition in all 3 edge functions.
+#### 1. Fix Build Error — LandingPage TypeScript
+- Verify the exact build error (likely related to recent LandingPage edits)
+- Ensure `CountUpValue` and `ScrollReveal` don't cause TS errors
 
-### 2. Missing `attachment_url` Column in `deal_messages` (CRITICAL)
-`BloggerDeals.tsx` inserts rows into `deal_messages` with `attachment_url` field (lines 516, 614), and `DealChat.tsx` reads `msg.attachment_url` (line 138). But the `deal_messages` table has no `attachment_url` column.
+#### 2. Lazy-load LandingPage in Index.tsx
+- Move `LandingPage` import to `lazy(() => import('./LandingPage'))` inside `Index.tsx`
+- This removes the heavy landing page from the main bundle for authenticated users
+- Replace "Загрузка..." text with `PageSkeleton`
 
-**Fix**: Add `attachment_url text` column to `deal_messages` table.
+#### 3. Optimize Auth Bootstrap Speed
+- Reduce safety timeout from 6000ms to 4000ms
+- Skip the `refreshSession()` call during bootstrap if `getSession()` already returned a valid session (currently it always calls both)
+- Remove `setLoading(true)` from `onAuthStateChange` to avoid flashing loading state on token refresh
 
-### 3. Missing `deal_id` Column in `notifications` (MODERATE)
-`BloggerDeals.tsx` inserts notifications with `deal_id` (line 435), but the `notifications` table has no `deal_id` column. The insert silently ignores this field.
+#### 4. Optimize QueryClient defaults
+- Set `staleTime` to 60 seconds on QueryClient so dashboard data doesn't refetch on every mount
+- Set `gcTime` (cacheTime) to 5 minutes
 
-**Fix**: Add `deal_id uuid` column to `notifications` table.
+#### 5. Add prefetch hints
+- Add `<link rel="modulepreload">` for critical vendor chunks in `index.html` if applicable
 
-### 4. Missing Trigger for `track_deal_status_change` (MODERATE)
-The function `track_deal_status_change()` exists in the database, but the trigger itself is not attached to the `deals` table (confirmed: "There are no triggers in the database"). Status history never gets populated.
+### Files to Modify
 
-**Fix**: Create the trigger `deal_status_history_trigger` on the `deals` table.
+| File | Change |
+|------|--------|
+| `src/pages/Index.tsx` | Lazy-load LandingPage, use PageSkeleton |
+| `src/contexts/AuthContext.tsx` | Optimize bootstrap: reduce timeout, skip redundant refresh, no loading flash on token refresh |
+| `src/App.tsx` | Add staleTime/gcTime to QueryClient defaults |
+| `src/pages/LandingPage.tsx` | Fix any TS build error (verify first) |
 
-### 5. Missing Unique Constraint on `reviews` (MODERATE)
-`SellerDeals.tsx` uses `upsert({ onConflict: 'deal_id,reviewer_id' })` but there's no unique constraint on `(deal_id, reviewer_id)`. The upsert will fail.
+### Technical Details
 
-**Fix**: Add `UNIQUE(deal_id, reviewer_id)` constraint to `reviews`.
+```text
+Current flow (slow):
+  App mount → AuthProvider.loading=true → 
+  getSession() → refreshSession() → fetchProfile() → loading=false →
+  Index renders → imports LandingPage (bundled) OR navigates
 
-### 6. Seller Deals Filter Hides Approved Blogger-Initiated Deals (BUG)
-`SellerDeals.tsx` line 109: `if (d.status === 'requested' && d.initiated_by === 'blogger') return false;` — This is actually correct, it only hides `requested` status blogger applications (those go to SellerApplications page). After approval, `status` changes to `approved` so they appear. No fix needed.
-
-### 7. `handle_new_user` Trigger Race Condition (MINOR)
-When a new user registers via Telegram with role `seller`, the `handle_new_user` trigger creates profile and role as `blogger`. The `telegram-auth` function then updates it to the selected role. This works because the update happens right after creation in the same function call, but there's a brief inconsistency.
-
-**Fix**: No code change needed — the current flow works correctly.
-
-### 8. `deadline_review` Referenced but Never Set
-`DealTimeline.tsx` accepts `deadlineReview` prop (line 15), and `SellerDeals.tsx` passes `detailDeal.deadline_review` (line 359), but there is no `deadline_review` column in the `deals` table. This prop is always `null/undefined`.
-
-**Fix**: Not blocking — the timeline gracefully handles null deadlines. Can be added later if needed.
-
----
-
-## Implementation Plan
-
-### Step 1: Database Migration
-Single SQL migration to fix all schema issues:
-
-```sql
--- 1. Add attachment_url to deal_messages
-ALTER TABLE public.deal_messages
-  ADD COLUMN IF NOT EXISTS attachment_url text;
-
--- 2. Add deal_id to notifications
-ALTER TABLE public.notifications
-  ADD COLUMN IF NOT EXISTS deal_id uuid;
-
--- 3. Create missing trigger for status history tracking
-CREATE TRIGGER deal_status_history_trigger
-  BEFORE UPDATE ON public.deals
-  FOR EACH ROW
-  EXECUTE FUNCTION public.track_deal_status_change();
-
--- 4. Add unique constraint on reviews for upsert
-ALTER TABLE public.reviews
-  ADD CONSTRAINT reviews_deal_reviewer_unique UNIQUE (deal_id, reviewer_id);
+Optimized flow:
+  App mount → AuthProvider.loading=true →
+  getSession() → (skip refresh if session exists) → fetchProfile() → loading=false →
+  Index renders → lazy-loads LandingPage OR navigates (dashboard already lazy)
 ```
 
-### Step 2: Fix CORS in Edge Functions
-Replace the broken import in all 3 edge functions with inline headers:
-
-```typescript
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-```
-
-Files to edit:
-- `supabase/functions/telegram-auth/index.ts`
-- `supabase/functions/telegram-notify/index.ts`
-- `supabase/functions/telegram-poll/index.ts`
-
-### Step 3: Verify
-No other code changes needed — all the frontend code already references the correct column names, it just needs the database to match.
-
----
-
-## What Already Works Correctly
-
-After this audit, the following features are confirmed working:
-- Auth flow (Telegram bot + code verification)
-- Role-based routing and protection
-- Product CRUD (seller)
-- Blogger onboarding wizard (all 8 steps, all fields match DB)
-- Blogger feed (product browsing + application)
-- Deal lifecycle (all status transitions)
-- Deal chat with realtime
-- Payment flow
-- Content/review submission and approval
-- Counter-proposals
-- Archive/unarchive
-- UTM generation
-- CSV export
-- Blogger search with enriched stats
-- Admin pages (users, deals, settings)
-- Notifications via Telegram
+The key wins:
+- **LandingPage lazy**: removes ~15KB+ from initial bundle for auth'd users
+- **Skip redundant refresh**: saves 200-500ms on bootstrap for users with valid sessions
+- **QueryClient staleTime**: prevents re-fetching dashboard data on every navigation
+- **No loading flash on token refresh**: eliminates mid-session skeleton flashes
 
