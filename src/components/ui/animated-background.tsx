@@ -35,6 +35,8 @@ const AnimatedBackground = forwardRef<HTMLDivElement>((_, ref) => {
       />
     </div>
   );
-};
+});
+
+AnimatedBackground.displayName = 'AnimatedBackground';
 
 export default AnimatedBackground;
