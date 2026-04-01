@@ -77,14 +77,29 @@ function categoryCoeff(bloggerNiche: string | null, sellerCategory: string): num
   return 0;
 }
 
-function geoCoeff(bloggerGeo: string | null, targetGeo: string | null): number {
+function geoCoeff(bloggerAudienceGeo: string | null, bloggerCity: string | null, targetGeo: string | null): number {
   if (!targetGeo) return 1; // no preference = everyone matches
-  if (!bloggerGeo) return 0.5;
-  const bg = bloggerGeo.toLowerCase();
-  const tg = targetGeo.toLowerCase();
-  if (bg === tg) return 1;
-  if (bg.includes(tg) || tg.includes(bg)) return 0.5;
-  return 0;
+  const tg = targetGeo.toLowerCase().trim();
+  
+  // Check audience_geo first (primary match — where the audience is)
+  if (bloggerAudienceGeo) {
+    const ag = bloggerAudienceGeo.toLowerCase();
+    if (ag === tg) return 1;
+    // "Россия, СНГ" includes "Россия", "Москва" etc.
+    if (ag.includes(tg) || tg.includes(ag)) return 0.8;
+    // Check comma-separated parts
+    const agParts = ag.split(',').map(s => s.trim());
+    if (agParts.some(p => p.includes(tg) || tg.includes(p))) return 0.7;
+  }
+  
+  // Fallback: check blogger's personal city/country
+  if (bloggerCity) {
+    const bc = bloggerCity.toLowerCase().trim();
+    if (bc === tg || bc.includes(tg) || tg.includes(bc)) return 0.5;
+  }
+  
+  if (!bloggerAudienceGeo && !bloggerCity) return 0.4;
+  return 0.1;
 }
 
 function audienceGenderCoeff(
