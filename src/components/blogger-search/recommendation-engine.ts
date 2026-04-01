@@ -174,11 +174,14 @@ function speedCoeff(blogger: EnrichedBlogger, targetSpeed: SpeedFilter | null): 
   return 0.7;
 }
 
-function cooperationCoeff(blogger: EnrichedBlogger, type: PriceType | null): number {
-  if (!type) return 1;
+function cooperationCoeff(blogger: EnrichedBlogger, types: PriceType[]): number {
+  if (types.length === 0) return 1;
   if (!blogger.questionnaire) return 0.5;
-  if (type === 'barter') return blogger.questionnaire.pricing_type === 'barter' ? 1 : 0.3;
-  return blogger.questionnaire.pricing_type !== 'barter' ? 1 : 0.5;
+  const bp = blogger.questionnaire.pricing_type;
+  // Both selected = everyone matches
+  if (types.includes('barter') && types.includes('paid')) return 1;
+  if (types.includes('barter')) return bp === 'barter' ? 1 : 0.3;
+  return bp !== 'barter' ? 1 : 0.5;
 }
 
 function familyCoeff(blogger: EnrichedBlogger, familyRelevant: boolean, category: string): number {

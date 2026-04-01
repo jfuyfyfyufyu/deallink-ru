@@ -89,15 +89,14 @@ export type PriceType = 'barter' | 'paid';
 
 export interface MatchingParams {
   productUrl: string;
-  category: string;
-  price: string;
+  categories: string[];
   goals: SearchGoal[];
   platforms: SocialPlatform[];
   minReach: string;
   reachMode: 'per_platform' | 'total';
   speed: SpeedFilter | null;
   minRiskScore: number;
-  priceType: PriceType | null;
+  priceTypes: PriceType[];
   // Extended fields for recommendation engine
   targetGender: 'male' | 'female' | 'unisex' | null;
   targetAgeRange: string | null;
