@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AppErrorBoundary from "@/components/AppErrorBoundary";
-import { lazy, Suspense, forwardRef } from "react";
+import { lazy, Suspense } from "react";
 import { PageSkeleton } from "@/components/ui/skeletons";
 
 // Eager: landing & auth (small, always needed)
@@ -49,7 +49,7 @@ const queryClient = new QueryClient({
   },
 });
 
-const PageLoader = forwardRef<HTMLDivElement>((_, ref) => <PageSkeleton />);
+const PageLoader = () => <PageSkeleton />;
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
