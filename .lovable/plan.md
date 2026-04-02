@@ -1,86 +1,75 @@
 
-Цель: убрать бесконечные загрузки и deadlock в первую очередь, затем снизить задержки на всех страницах.
 
-1) CRITICAL RECOVERY (сначала стабилизация)
+## Complete Migration Instructions for New Lovable Environment
 
-A. Auth bootstrap + deadlock (src/contexts/AuthContext.tsx)
-- ROOT CAUSE: `ProtectedRoute` ждёт `profile`, а `profile` может не прийти (ошибка/зависший запрос), из-за чего вечный `PageSkeleton`.
-- THE FIX:
-  - Добавить `withTimeout()`/`fetchWithTimeout()` (через `Promise.race`) для `getSession` и `fetchProfile`.
-  - Разделить состояния: `authLoading` и `profileLoading`.
-  - Гарантировать `setLoading(false)` в `finally`.
-  - `onAuthStateChange` сделать неблокирующим (без `await fetchProfile` в критическом потоке).
-  - Хранить `role` отдельно в контексте (из `user_roles` + fallback из кэша), чтобы роутинг не зависел от полного профиля.
-- STABILITY MODS: fallback на `profile=null`, таймауты, защита от unmounted state update.
-- PERFORMANCE GAIN: устраняется вечный лоадер; первый рендер после авторизации ускорится примерно на 0.3–1.0с.
+### Problem
+The previous `SETUP_INSTRUCTIONS.md` file was never actually created in the codebase. I need to create a comprehensive, self-contained instruction file that covers **every** component needed to replicate the current working system.
 
-B. Route gating (src/components/ProtectedRoute.tsx, src/pages/Index.tsx, src/components/AppSidebar.tsx)
-- ROOT CAUSE: текущая логика блокирует маршрут на `!profile`.
-- THE FIX:
-  - Перевести проверку доступа на `role` из AuthContext (не на `profile`).
-  - `profile` оставить только для UI-данных (имя/аватар), не для критичного доступа.
-  - В `Index` убрать зависимость редиректа от `profile`.
-- STABILITY MODS: даже при падении запроса профиля пользователь попадает в свой раздел, а не в бесконечный скелетон.
-- PERFORMANCE GAIN: исчезают зависания переходов между `/`, `/auth`, dashboard.
+### What the current system consists of
 
-C. Error boundary (новый `src/components/AppErrorBoundary.tsx`, подключение в `src/App.tsx`)
-- ROOT CAUSE: runtime-ошибка может уронить всё дерево и дать “белый экран”.
-- THE FIX: глобальный ErrorBoundary вокруг роутов с fallback (перезагрузка/возврат на `/auth`).
-- STABILITY MODS: локализация краша вместо полного отказа приложения.
-- PERFORMANCE GAIN: не ускоряет напрямую, но убирает полный UX-обрыв.
+After auditing all 10 migrations, edge functions, cron jobs, secrets, storage, and triggers, here is the complete inventory:
 
-2) DEEP CODE AUDIT (после снятия deadlock)
+**Database:**
+- 1 enum: `app_role`
+- 11 tables: `profiles`, `user_roles`, `products`, `deals`, `deal_messages`, `deal_archives`, `blogger_questionnaires`, `reviews`, `notifications`, `telegram_bot_state`, `telegram_auth_codes`, `telegram_messages`
+- 5 functions: `has_role`, `update_updated_at_column`, `handle_new_user`, `track_deal_status_change`, `notify_seller_deal_status_changed`
+- 6 triggers: 4x `update_updated_at`, `deal_status_history_trigger`, `trg_notify_seller_deal_status_changed`, `on_auth_user_created`
+- 1 constraint: `reviews_deal_reviewer_unique`
+- 4 indexes on telegram tables
+- 1 partial unique index: `idx_telegram_auth_codes_active`
+- Full RLS policies on all tables
+- Realtime enabled for `deals`, `deal_messages`, `notifications`
 
-D. Таймауты и безопасные запросы (новый `src/lib/async-safe.ts`, применение в AuthPage и тяжёлых queryFn)
-- ROOT CAUSE: часть fetch/query без таймаута и без унифицированного fallback.
-- THE FIX:
-  - Обёртки: `withTimeout`, `safeQuery` (возврат `[]/null` + лог).
-  - Применить в `AuthPage` (`telegram-poll`, `telegram-auth`) и ключевых queryFn (admin/deals/feed/search).
-- STABILITY MODS: ни один загрузочный сценарий не остаётся без выхода.
-- PERFORMANCE GAIN: меньше зависших ожиданий, лучше отзывчивость на плохой сети.
+**Storage:** 2 public buckets (`proofs`, `product-images`) with RLS policies
 
-E. Убрать ref-warning шум (src/pages/LandingPage.tsx)
-- ROOT CAUSE: `CountUpValue` и `ScrollReveal` получают ref извне (dev tooling), но не `forwardRef`, что даёт постоянные warnings и лишнюю нагрузку.
-- THE FIX: обернуть оба компонента в `React.forwardRef` или убрать прокидывание ref через внешние обёртки.
-- STABILITY MODS: чистый рендер без warning-спама.
-- PERFORMANCE GAIN: меньше лишних dev-перерисовок/логов; стабильнее мобильный рендер.
+**Edge Functions (4):** `telegram-poll`, `telegram-auth`, `telegram-notify`, `telegram-deal-status`
 
-F. Тяжёлые выборки данных (admin/blogger/search/deals файлы)
-- ROOT CAUSE: много `.select('*')`, отсутствие лимитов/пагинации.
-- THE FIX:
-  - Заменить `*` на конкретные поля.
-  - Добавить лимит + пагинацию в админ-списках и аналитике.
-  - Для больших списков включить `keepPreviousData` и постепенную подгрузку.
-- STABILITY MODS: меньше шансов “подвесить” UI большими payload.
-- PERFORMANCE GAIN: снижение сетевой нагрузки примерно на 30–60% на тяжёлых страницах.
+**Cron:** `pg_cron` job polling `telegram-poll` every minute
 
-G. Realtime invalidation storm (src/hooks/use-deals-realtime.ts)
-- ROOT CAUSE: широкая массовая инвалидция query keys при каждом событии.
-- THE FIX:
-  - Инвалидировать только релевантные ключи по роли/странице.
-  - Добавить debounce/throttle батч-инвалидации.
-- STABILITY MODS: меньше каскадных refetch и “замираний”.
-- PERFORMANCE GAIN: заметно быстрее навигация при активных обновлениях (до 40–70% меньше лишних refetch).
+**Secrets (2 manual):** `SUPABASE_URL`, `SUPABASE_ANON_KEY` (in vault for trigger), `LOVABLE_API_KEY` (auto), `TELEGRAM_API_KEY` (connector)
 
-3) PERFORMANCE OVERHEAD (только после стабильности)
+**Auth config:** JWT expiry 30 days, trigger on `auth.users` for auto-profile creation
 
-H. Lazy + UI cost trimming (src/App.tsx и списковые компоненты)
-- ROOT CAUSE: часть тяжёлых участков ещё рендерится слишком рано.
-- THE FIX:
-  - Лениво грузить AuthPage.
-  - В карточках/лентах добавить `loading="lazy"` у изображений.
-  - Для длинных списков (admin/blogger search) внедрить виртуализацию.
-- STABILITY MODS: ниже риск mobile/tablet render failure.
-- PERFORMANCE GAIN: ускорение FCP/LCP и скролла на слабых устройствах.
+**Hardcoded references to update:**
+- `deallink-ru.lovable.app` in `telegram-deal-status/index.ts`
+- `BlogerTop_bot` in `AuthPage.tsx`
+- Cron job URL contains project ref + anon key
 
-Технические детали
-- БД/миграции: не требуются для этого emergency-фикса.
-- Безопасность ролей: доступ в UI переводим на роль из `user_roles` в контексте; профиль не должен быть блокирующим фактором.
-- Гарантия выхода из loading: все критичные async-пути имеют timeout + fallback + `finally`.
+### Plan: Create `SETUP_INSTRUCTIONS.md`
 
-План проверки (после внедрения)
-1. Логин/редирект для blogger/seller/admin: нет бесконечного скелетона.
-2. Искусственно “уронить” профильный запрос (timeout/error): интерфейс всё равно открывается.
-3. Мобильные вьюпорты 390/768/834: UI виден, без белого экрана.
-4. Переходы между dashboard-страницами: нет подвисаний при realtime-событиях.
-5. Консоль: исчезли warning’и про refs в LandingPage.
+Create a single file with a complete prompt that the user can paste into the new Lovable project chat. The prompt will contain:
+
+1. **Single consolidated SQL migration** — all 10 migrations merged into one idempotent script covering:
+   - Enum, all 11 tables with all columns (including ones added in later migrations)
+   - All RLS policies
+   - All functions and triggers
+   - Storage buckets and their policies
+   - Realtime publication
+   - Indexes and constraints
+
+2. **Vault secrets setup** — SQL to insert `SUPABASE_URL` and `SUPABASE_ANON_KEY` into vault (needed by the `notify_seller_deal_status_changed` trigger)
+
+3. **pg_cron setup** — SQL with placeholders for new project ref and anon key
+
+4. **Telegram connector** — instruction to connect Telegram via connector tool
+
+5. **Auth config** — `supabase/config.toml` JWT expiry setting
+
+6. **Edge functions** — note that they deploy automatically from the ZIP
+
+7. **Checklist of things to update** — domain URL in `telegram-deal-status`, bot username if changed
+
+### Files to create
+- `SETUP_INSTRUCTIONS.md` — the complete migration guide
+
+### Important gaps the previous plan was missing
+- **pg_cron job** was not mentioned at all
+- **Vault secrets** (`SUPABASE_URL`, `SUPABASE_ANON_KEY`) used by the trigger function were not documented
+- **Partial unique index** on `telegram_auth_codes` was missing
+- **`notify_seller_deal_status_changed` trigger** and its dependency on `pg_net` extension was not explicitly documented
+- **`deal_archives` table** unique constraint `(deal_id, user_id)` was not mentioned
+- **`reviews` unique constraint** `reviews_deal_reviewer_unique` was missing
+- Several columns added in later migrations (e.g. `deadline_final`, `status_history`, `order_screenshot_url`, `payment_*`, `attachment_url` on `deal_messages`, `deal_id` on `notifications`, `quality_index`, `discipline_index`) were not consolidated
+- **Hardcoded URL** `deallink-ru.lovable.app` in edge function needs updating
+- **Auth trigger** `on_auth_user_created` on `auth.users` — critical for auto-profile creation
+
